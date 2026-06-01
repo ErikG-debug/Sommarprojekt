@@ -69,8 +69,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Ärenden</h1>
-        <span className="text-sm text-gray-500">{cases.length} ärenden</span>
+        <h1 className="bg-gradient-to-r from-blue-700 to-indigo-500 bg-clip-text text-2xl font-bold text-transparent">
+          Ärenden
+        </h1>
+        <span className="text-sm text-gray-400">{cases.length} ärenden</span>
       </div>
 
       {/* Flikar */}
@@ -89,8 +91,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               href={tab.value === "ALL" ? "/dashboard" : `/dashboard?filter=${tab.value}`}
               className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition ${
                 isActive
-                  ? "border-gray-900 text-gray-900"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-gray-500 hover:text-blue-500"
               }`}
             >
               {tab.label}
@@ -137,7 +139,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       {cases.length === 0 ? (
         <div className="py-20 text-center text-gray-500">Inga ärenden att visa</div>
       ) : (
-        <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+        <div className="divide-y divide-blue-50 overflow-hidden rounded-xl border border-blue-100 bg-white shadow-sm shadow-blue-100">
           {cases.map((c) => (
             <CaseRow
               key={c.id}

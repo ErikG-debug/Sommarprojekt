@@ -29,7 +29,7 @@ export function CaseRow({
 
   return (
     <Link href={`/dashboard/cases/${id}`} className="block">
-      <div className="flex items-center gap-4 px-4 py-3 transition hover:bg-gray-50">
+      <div className="flex items-center gap-4 border-l-2 border-transparent px-4 py-3 transition hover:border-blue-400 hover:bg-blue-50/40">
         {/* Vänster: ämne + avsändare */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
