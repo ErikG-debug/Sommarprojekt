@@ -17,7 +17,7 @@ function generateNoiseDots(
   const dots: { x: number; y: number; r: number }[] = [];
   let attempts = 0;
 
-  while (dots.length < targetCount && attempts < targetCount * 70) {
+  while (dots.length < targetCount && attempts < targetCount * 100) {
     attempts++;
     const x = rand() * W;
     const y = rand() * H;
@@ -63,8 +63,8 @@ function generateLogoNoiseDots(x0: number, y0: number, x1: number, y1: number, c
 
 const W = 1440;
 const H = 72;
-const NAV_DOTS  = generateNoiseDots(W, H, W * 0.88, H * 0.5, 280, 8000);
-const LOGO_DOTS = generateLogoNoiseDots(100, 18, 268, 58, 3200);
+const NAV_DOTS  = generateNoiseDots(W, H, W * 0.88, H * 0.5, 240, 30000);
+const LOGO_DOTS = generateLogoNoiseDots(100, 18, 268, 58, 9000);
 
 export function HeaderDots() {
   return (
