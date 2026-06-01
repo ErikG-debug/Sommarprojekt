@@ -38,30 +38,31 @@ export function HeaderDots() {
       preserveAspectRatio="xMidYMid slice"
     >
       <defs>
-        {/* Termisk gradient: het blå kärna → fadar ut till vitt */}
-        <radialGradient id="thermal" cx="88%" cy="50%" r="72%" gradientUnits="objectBoundingBox">
-          <stop offset="0%"   stopColor="#1a6ba8" /> {/* het kärna: denim */}
-          <stop offset="28%"  stopColor="#5aaad8" /> {/* varm: ljusare blå */}
-          <stop offset="60%"  stopColor="#b8dcf0" /> {/* sval: mycket ljus blå */}
-          <stop offset="100%" stopColor="#ffffff" /> {/* kall: vitt */}
+        {/* Termisk gradient: koncentrerad blå kärna → skarpt till vitt */}
+        <radialGradient id="thermal" cx="88%" cy="50%" r="52%" gradientUnits="objectBoundingBox">
+          <stop offset="0%"   stopColor="#0c5490" />
+          <stop offset="22%"  stopColor="#1a7bc4" />
+          <stop offset="48%"  stopColor="#8ac8e8" />
+          <stop offset="72%"  stopColor="#ddf0fb" />
+          <stop offset="100%" stopColor="#ffffff" />
         </radialGradient>
 
         {/* Sensor grain / termisk brus-filter */}
         <filter id="grain" x="-2%" y="-2%" width="104%" height="104%" colorInterpolationFilters="sRGB">
           <feTurbulence
             type="fractalNoise"
-            baseFrequency="0.72 0.72"
+            baseFrequency="0.82 0.82"
             numOctaves="4"
             seed="12"
             stitchTiles="stitch"
             result="noise"
           />
           <feColorMatrix type="saturate" values="0" in="noise" result="mono" />
-          <feBlend in="SourceGraphic" in2="mono" mode="soft-light" result="blended" />
+          <feBlend in="SourceGraphic" in2="mono" mode="overlay" result="blended" />
           <feComponentTransfer in="blended">
-            <feFuncR type="linear" slope="1.05" />
-            <feFuncG type="linear" slope="1.05" />
-            <feFuncB type="linear" slope="1.1" />
+            <feFuncR type="linear" slope="1.1" intercept="-0.05" />
+            <feFuncG type="linear" slope="1.1" intercept="-0.05" />
+            <feFuncB type="linear" slope="1.15" intercept="-0.05" />
           </feComponentTransfer>
         </filter>
 
