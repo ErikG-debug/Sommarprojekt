@@ -20,8 +20,7 @@ function generateDots(W: number, H: number, focalX: number, focalY: number, sigm
       if (rand() < prob) {
         const x = gx + (rand() - 0.5) * step * 0.6;
         const y = gy + (rand() - 0.5) * step * 0.6;
-        // Lite större prickar ute i glesa kanten så dom syns tydligare
-        const r = prob < 0.2 ? 1.8 : 1.2;
+        const r = 1.2;
         dots.push({
           x: Math.round(x * 10) / 10,
           y: Math.round(y * 10) / 10,
@@ -36,8 +35,8 @@ function generateDots(W: number, H: number, focalX: number, focalY: number, sigm
 
 const W = 1440;
 const H = 72;
-// Fokuspunkt: höger sida, mitten av headern
-const DOTS = generateDots(W, H, W * 0.88, H * 0.5, 220);
+// Fokuspunkt bakom nav-länkarna (Ärenden / Inställningar) uppe till höger
+const DOTS = generateDots(W, H, W * 0.93, H * 0.5, 260);
 
 export function HeaderDots() {
   return (
