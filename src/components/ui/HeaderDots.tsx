@@ -36,7 +36,7 @@ function generateDots(
 
 function generateLogoDots(x0: number, y0: number, x1: number, y1: number) {
   const rand = seededRandom(777);
-  const step = 2.2;
+  const step = 1.3;
   const dots: { x: number; y: number }[] = [];
   for (let gx = x0; gx <= x1; gx += step) {
     for (let gy = y0; gy <= y1; gy += step) {
