@@ -21,7 +21,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text();
   const signature = req.headers.get("x-postmark-signature") ?? "";
 
-  if (process.env.NODE_ENV === "production" && !verifyPostmarkWebhook(rawBody, signature)) {
+  const webhookSecret = process.env.POSTMARK_WEBHOOK_SECRET;
+  if (webhookSecret && !verifyPostmarkWebhook(rawBody, signature)) {
     return NextResponse.json({ error: "Ogiltig signatur" }, { status: 401 });
   }
 
