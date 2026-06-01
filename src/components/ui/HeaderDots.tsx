@@ -8,7 +8,7 @@ function seededRandom(seed: number) {
 
 function generateDots(W: number, H: number, focalX: number, focalY: number, sigma: number) {
   const rand = seededRandom(42);
-  const step = 1.5;
+  const step = 1.2;
   const dots: { x: number; y: number; r: number }[] = [];
 
   for (let gx = 0; gx <= W; gx += step) {
@@ -18,9 +18,9 @@ function generateDots(W: number, H: number, focalX: number, focalY: number, sigm
       const prob = Math.exp(-(dx * dx + dy * dy) / (2 * sigma * sigma));
 
       if (rand() < prob) {
-        const x = gx + (rand() - 0.5) * step * 0.6;
-        const y = gy + (rand() - 0.5) * step * 0.6;
-        const r = 1.2;
+        const x = gx + (rand() - 0.5) * step * 0.5;
+        const y = gy + (rand() - 0.5) * step * 0.5;
+        const r = 0.75;
         dots.push({
           x: Math.round(x * 10) / 10,
           y: Math.round(y * 10) / 10,
@@ -36,7 +36,8 @@ function generateDots(W: number, H: number, focalX: number, focalY: number, sigm
 const W = 1440;
 const H = 72;
 // Fokuspunkt bakom nav-länkarna (Ärenden / Inställningar) uppe till höger
-const DOTS = generateDots(W, H, W * 0.93, H * 0.5, 320);
+// Fokuspunkt bakom "Ärenden"-länken
+const DOTS = generateDots(W, H, W * 0.83, H * 0.5, 320);
 
 export function HeaderDots() {
   return (
