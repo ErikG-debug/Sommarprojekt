@@ -38,12 +38,12 @@ export function HeaderDots() {
       preserveAspectRatio="xMidYMid slice"
     >
       <defs>
-        {/* Termisk gradient: kall (svart) → sval (mörk navy) → varm (denim) → het (ljusblå) */}
-        <radialGradient id="thermal" cx="88%" cy="50%" r="68%" gradientUnits="objectBoundingBox">
-          <stop offset="0%"   stopColor="#b8ddf5" /> {/* het kärna */}
-          <stop offset="18%"  stopColor="#2a82c8" /> {/* varm */}
-          <stop offset="48%"  stopColor="#0b2d50" /> {/* sval */}
-          <stop offset="100%" stopColor="#04090f" /> {/* kall: nästintill svart */}
+        {/* Termisk gradient: het blå kärna → fadar ut till vitt */}
+        <radialGradient id="thermal" cx="88%" cy="50%" r="72%" gradientUnits="objectBoundingBox">
+          <stop offset="0%"   stopColor="#1a6ba8" /> {/* het kärna: denim */}
+          <stop offset="28%"  stopColor="#5aaad8" /> {/* varm: ljusare blå */}
+          <stop offset="60%"  stopColor="#b8dcf0" /> {/* sval: mycket ljus blå */}
+          <stop offset="100%" stopColor="#ffffff" /> {/* kall: vitt */}
         </radialGradient>
 
         {/* Sensor grain / termisk brus-filter */}
@@ -83,7 +83,7 @@ export function HeaderDots() {
       {/* Logo: ljusa prickar klippta till textform mot mörk bakgrund */}
       <g clipPath="url(#logo-clip)">
         {LOGO_DOTS.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="rgba(200,230,250,0.92)" />
+          <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="rgba(20,80,130,0.9)" />
         ))}
       </g>
     </svg>
