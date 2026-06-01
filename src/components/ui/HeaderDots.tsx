@@ -63,8 +63,8 @@ function generateLogoNoiseDots(x0: number, y0: number, x1: number, y1: number, c
 
 const W = 1440;
 const H = 72;
-const NAV_DOTS  = generateNoiseDots(W, H, W * 0.88, H * 0.5, 240, 30000);
-const LOGO_DOTS = generateLogoNoiseDots(100, 18, 268, 58, 9000);
+const NAV_DOTS  = generateNoiseDots(W, H, W * 0.88, H * 0.5, 180, 90000);
+const LOGO_DOTS = generateLogoNoiseDots(100, 18, 268, 58, 25000);
 
 export function HeaderDots() {
   return (
