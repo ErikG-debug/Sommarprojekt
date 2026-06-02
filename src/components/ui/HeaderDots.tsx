@@ -1,33 +1,5 @@
-function seededRandom(seed: number) {
-  let s = seed | 0;
-  return () => {
-    s = Math.imul(s, 1664525) + 1013904223 | 0;
-    return (s >>> 0) / 0x100000000;
-  };
-}
-
-function generateLogoNoiseDots(x0: number, y0: number, x1: number, y1: number, count: number) {
-  const rand = seededRandom(999);
-  const dots: { x: number; y: number; r: number }[] = [];
-  for (let i = 0; i < count; i++) {
-    const x = x0 + rand() * (x1 - x0);
-    const y = y0 + rand() * (y1 - y0);
-    const t = rand();
-    const r = t < 0.55 ? 0.25 + rand() * 0.3
-            : t < 0.85 ? 0.55 + rand() * 0.35
-            :             0.9 + rand() * 0.35;
-    dots.push({
-      x: Math.round(x * 10) / 10,
-      y: Math.round(y * 10) / 10,
-      r: Math.round(r * 100) / 100,
-    });
-  }
-  return dots;
-}
-
 const W = 1440;
 const H = 72;
-const LOGO_DOTS = generateLogoNoiseDots(100, 18, 268, 58, 18000);
 
 export function HeaderDots() {
   return (
@@ -38,9 +10,8 @@ export function HeaderDots() {
       preserveAspectRatio="xMidYMid slice"
     >
       <defs>
-        {/* Elliptisk gradient: bredare horisontellt, lite flatare vertikalt */}
-        <radialGradient id="thermal" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1"
-          gradientTransform="translate(1240 36) scale(430 220)">
+        <radialGradient id="g-l" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1"
+          gradientTransform="translate(160 36) scale(590 36)">
           <stop offset="0%"   stopColor="#0b4e87" stopOpacity="1"   />
           <stop offset="28%"  stopColor="#1a7bc4" stopOpacity="1"   />
           <stop offset="58%"  stopColor="#5ab0de" stopOpacity="0.65"/>
@@ -48,42 +19,44 @@ export function HeaderDots() {
           <stop offset="100%" stopColor="#1a6ba8" stopOpacity="0"   />
         </radialGradient>
 
-        {/* Sensor grain / termisk brus-filter */}
-        <filter id="grain" x="-2%" y="-2%" width="104%" height="104%" colorInterpolationFilters="sRGB">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.82 0.82"
-            numOctaves="4"
-            seed="12"
-            stitchTiles="stitch"
-            result="noise"
-          />
-          <feColorMatrix type="saturate" values="0" in="noise" result="mono" />
-          <feBlend in="SourceGraphic" in2="mono" mode="overlay" result="blended" />
-          <feComposite in="blended" in2="SourceGraphic" operator="in" />
-        </filter>
+        <radialGradient id="g-r" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1"
+          gradientTransform="translate(1249 36) scale(630 40)">
+          <stop offset="0%"   stopColor="#0b4e87" stopOpacity="1"   />
+          <stop offset="28%"  stopColor="#1a7bc4" stopOpacity="1"   />
+          <stop offset="58%"  stopColor="#5ab0de" stopOpacity="0.65"/>
+          <stop offset="80%"  stopColor="#1a6ba8" stopOpacity="0.15"/>
+          <stop offset="100%" stopColor="#1a6ba8" stopOpacity="0"   />
+        </radialGradient>
 
-        {/* Logo clip-path */}
-        <clipPath id="logo-clip">
-          <text
-            x="104" y="46"
-            fontSize="21" fontWeight="700"
-            fontFamily="ui-sans-serif, system-ui, sans-serif"
-          >
-            PropDesk
-          </text>
-        </clipPath>
+        {/*
+          Flerskiktad thermal displacement — exakt som en värmekamera:
+          Lager 1 (grov): stora flödesmönster som termisk konvektion (~50px)
+          Lager 2 (medel): ytvariation och struktur (~25px)
+          Lager 3 (fin):   sensor-grain (~1px)
+          Enbart feDisplacementMap = inga färgändringar = noll grå.
+        */}
+        <filter id="thermo" x="-10%" y="-100%" width="120%" height="300%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.007 0.005"
+            numOctaves="5" seed="5" result="coarse" />
+          <feDisplacementMap in="SourceGraphic" in2="coarse"
+            scale="55" xChannelSelector="R" yChannelSelector="G" result="w1" />
+
+          <feTurbulence type="fractalNoise" baseFrequency="0.038 0.028"
+            numOctaves="4" seed="11" result="mid" />
+          <feDisplacementMap in="w1" in2="mid"
+            scale="16" xChannelSelector="R" yChannelSelector="G" result="w2" />
+
+          <feTurbulence type="fractalNoise" baseFrequency="0.78 0.78"
+            numOctaves="2" seed="3" result="fine" />
+          <feDisplacementMap in="w2" in2="fine"
+            scale="4" xChannelSelector="R" yChannelSelector="G" result="w3" />
+
+          <feGaussianBlur in="w3" stdDeviation="2.2 1.6" />
+        </filter>
       </defs>
 
-      {/* Termisk bakgrund med sensor-brus */}
-      <rect width={W} height={H} fill="url(#thermal)" filter="url(#grain)" />
-
-      {/* Logo: ljusa prickar klippta till textform mot mörk bakgrund */}
-      <g clipPath="url(#logo-clip)">
-        {LOGO_DOTS.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="rgba(20,80,130,0.9)" />
-        ))}
-      </g>
+      <rect width={W} height={H} fill="url(#g-l)" filter="url(#thermo)" />
+      <rect width={W} height={H} fill="url(#g-r)" filter="url(#thermo)" />
     </svg>
   );
 }
