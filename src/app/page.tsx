@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b border-gray-100 px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <span className="text-lg font-bold text-gray-900">BoDesk</span>
+          <Image src="/logo.png" alt="BoDesk" width={140} height={40} className="h-10 w-auto" />
           <Link
             href="/login"
             className="rounded-lg bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f]"
@@ -25,6 +26,7 @@ export default function HomePage() {
 
       {/* Hero */}
       <section className="mx-auto flex max-w-5xl flex-1 flex-col items-center justify-center px-6 py-24 text-center">
+        <Image src="/logo.png" alt="BoDesk" width={220} height={64} className="mb-8 h-16 w-auto" />
         <h1 className="mb-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
           Ärendehantering för fastighetsbolag
         </h1>
