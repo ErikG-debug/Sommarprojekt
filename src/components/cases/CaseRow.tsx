@@ -1,7 +1,31 @@
 import Link from "next/link";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ThermalStripe } from "@/components/ui/ThermalStripe";
 import type { CaseStatus } from "@prisma/client";
+
+type TagKind = "bo" | "manual" | "closed" | null;
+
+const TAG_CONFIG: Record<Exclude<TagKind, null>, { label: string; cls: string }> = {
+  bo:     { label: "Bo jobbar",     cls: "bg-[#1a6ba8]/10 text-[#1a6ba8]" },
+  manual: { label: "Manuellt fall", cls: "bg-amber-100 text-amber-800" },
+  closed: { label: "Avslutat",      cls: "bg-gray-100 text-gray-600" },
+};
+
+function getTag(status: CaseStatus): TagKind {
+  if (status === "COLLECTING_INFORMATION" || status === "WAITING_FOR_RESIDENT") return "bo";
+  if (status === "ESCALATED") return "manual";
+  if (status === "CLOSED" || status === "ARCHIVED") return "closed";
+  return null;
+}
+
+function Tag({ kind }: { kind: TagKind }) {
+  if (!kind) return null;
+  const { label, cls } = TAG_CONFIG[kind];
+  return (
+    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
 interface CaseRowProps {
   id: string;
@@ -27,6 +51,7 @@ export function CaseRow({
   lastMessage,
 }: CaseRowProps) {
   const timeAgo = formatTimeAgo(new Date(updatedAt));
+  const tag = getTag(status);
 
   return (
     <Link href={`/dashboard/cases/${id}`} className="block">
@@ -55,7 +80,7 @@ export function CaseRow({
               {category.name}
             </span>
           )}
-          <StatusBadge status={status} />
+          <Tag kind={tag} />
           <span className="w-16 text-right text-xs text-gray-400">{timeAgo}</span>
         </div>
       </div>
