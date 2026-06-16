@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { UrgencyBadge } from "@/components/ui/UrgencyBadge";
 import { ThermalStripe } from "@/components/ui/ThermalStripe";
-import type { CaseStatus } from "@prisma/client";
+import type { Urgency } from "@/lib/types";
 
 type TagKind = "bo" | "manual" | "closed" | null;
 
@@ -10,15 +13,13 @@ const TAG_CONFIG: Record<Exclude<TagKind, null>, { label: string; cls: string }>
   closed: { label: "Avslutat",      cls: "bg-gray-100 text-gray-600" },
 };
 
-function getTag(status: CaseStatus): TagKind {
-  if (status === "COLLECTING_INFORMATION" || status === "WAITING_FOR_RESIDENT") return "bo";
-  if (status === "ESCALATED") return "manual";
-  if (status === "CLOSED" || status === "ARCHIVED") return "closed";
-  return null;
-}
-
 function Tag({ kind }: { kind: TagKind }) {
-  if (!kind) return null;
+  if (!kind)
+    return (
+      <span className="invisible rounded-full px-2.5 py-1 text-xs font-semibold">
+        Platshållare
+      </span>
+    );
   const { label, cls } = TAG_CONFIG[kind];
   return (
     <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${cls}`}>
@@ -32,11 +33,9 @@ interface CaseRowProps {
   subject: string;
   residentEmail: string;
   residentName: string | null;
-  status: CaseStatus;
-  category: { name: string } | null;
-  property: { name: string } | null;
-  updatedAt: string;
-  lastMessage?: string;
+  urgency: Urgency;
+  tag?: TagKind;
+  fromFilter?: string;
 }
 
 export function CaseRow({
@@ -44,17 +43,20 @@ export function CaseRow({
   subject,
   residentEmail,
   residentName,
-  status,
-  category,
-  property,
-  updatedAt,
-  lastMessage,
+  urgency,
+  tag = null,
+  fromFilter,
 }: CaseRowProps) {
-  const timeAgo = formatTimeAgo(new Date(updatedAt));
-  const tag = getTag(status);
-
   return (
-    <Link href={`/dashboard/cases/${id}`} className="block">
+    <Link
+      href={`/dashboard/cases/${id}`}
+      className="block"
+      onClick={() => {
+        if (fromFilter) {
+          sessionStorage.setItem("bodesk:lastFilter", fromFilter);
+        }
+      }}
+    >
       <div className="group relative flex items-center gap-4 px-5 py-4 transition hover:bg-[#1a6ba8]/5">
         <ThermalStripe className="pointer-events-none absolute inset-y-0 left-0 h-full w-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
@@ -65,35 +67,17 @@ export function CaseRow({
             {residentName && (
               <span className="ml-1 text-gray-400">· {residentEmail}</span>
             )}
-            {lastMessage && (
-              <span className="ml-2 text-gray-400">— {lastMessage}</span>
-            )}
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          {property && (
-            <span className="hidden text-xs text-gray-400 sm:block">{property.name}</span>
-          )}
-          {category && (
-            <span className="hidden rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 sm:block">
-              {category.name}
-            </span>
-          )}
+        <div className="flex w-[128px] shrink-0 justify-center">
           <Tag kind={tag} />
-          <span className="w-16 text-right text-xs text-gray-400">{timeAgo}</span>
+        </div>
+
+        <div className="flex w-[104px] shrink-0 justify-center">
+          <UrgencyBadge urgency={urgency} />
         </div>
       </div>
     </Link>
   );
-}
-
-function formatTimeAgo(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}m sedan`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h sedan`;
-  const days = Math.floor(hours / 24);
-  return `${days}d sedan`;
 }
