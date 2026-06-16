@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { UrgencyBadge, URGENCY_OPTIONS, urgencyLabel } from "@/components/ui/UrgencyBadge";
+import { URGENCY_OPTIONS, urgencyLabel } from "@/components/ui/UrgencyBadge";
 import { FieldValuesList } from "@/components/cases/FieldValuesList";
 import { closeCase, reopenCase, useClosedCases } from "@/lib/closedCases";
 import {
@@ -14,6 +14,7 @@ import {
   setUrgencyOverride,
   useUrgencyOverrides,
 } from "@/lib/caseOverrides";
+import { useCaseStages, setCaseStage } from "@/lib/caseStages";
 import { useRoutingCategories } from "@/lib/categories";
 import type { Urgency } from "@/lib/types";
 import type { CaseStatus } from "@prisma/client";
@@ -32,20 +33,20 @@ const CONTRACTOR_THREAD: ThreadMessage[] = [
   {
     id: "c1",
     sender: "bo",
-    body: "Hej! Vi har ett ärende som matchar er kompetens. Kan du ta ett besök inom kort?",
+    body: "Hej Anders! Vi har en akut vattenläcka under diskbänken. Kan du ta det idag eller imorgon?",
     sentAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
   },
   {
     id: "c2",
     sender: "contractor",
-    senderName: "Servicepersonal",
-    body: "Hej! Imorgon funkar. Jag kan mellan 14–16.",
+    senderName: "Anders (Rörmokare)",
+    body: "Hej! Imorgon onsdag funkar. Jag kan mellan 14–16.",
     sentAt: new Date(Date.now() - 1000 * 60 * 60 * 2.5).toISOString(),
   },
   {
     id: "c3",
     sender: "handler",
-    senderName: "Handläggare",
+    senderName: "Karin",
     body: "Perfekt, jag bokar onsdag 14–16. Återkommer när hyresgästen bekräftat tillträde.",
     sentAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
   },
@@ -54,9 +55,9 @@ const CONTRACTOR_THREAD: ThreadMessage[] = [
 type StepState = "done" | "active" | "pending";
 const BOOKING_STEPS: { label: string; state: StepState; sub?: string }[] = [
   { label: "Ärende komplett", state: "done", sub: "Alla uppgifter inhämtade" },
-  { label: "Servicepersonal kontaktad", state: "done" },
-  { label: "Tid bokad", state: "active", sub: "Väntar på bekräftelse" },
-  { label: "Tillträde bekräftat", state: "pending" },
+  { label: "Servicepersonal kontaktad", state: "done", sub: "Anders · Rörmokare" },
+  { label: "Tid bokad", state: "done", sub: "Anders · onsdag 14–16" },
+  { label: "Tillträde bekräftat", state: "active", sub: "Väntar på hyresgäst" },
   { label: "Åtgärdat & avslutat", state: "pending" },
 ];
 
@@ -80,36 +81,16 @@ interface CaseDetail {
   messages: { id: string; fromResident: boolean; body: string; sentAt: string }[];
 }
 
-function senderMeta(sender: Sender) {
+function senderMeta(sender: Sender, senderName?: string) {
   switch (sender) {
     case "resident":
-      return {
-        label: "Hyresgäst",
-        side: "left" as const,
-        bubble: "bg-gray-100 text-gray-800",
-        meta: "text-gray-500",
-      };
+      return { label: senderName ?? "Hyresgäst", side: "left" as const, bubble: "bg-gray-100 text-gray-800", meta: "text-gray-400" };
     case "bo":
-      return {
-        label: "Bo",
-        side: "right" as const,
-        bubble: "bg-[#1a6ba8] text-white",
-        meta: "text-blue-200",
-      };
+      return { label: "Bo (AI)", side: "right" as const, bubble: "bg-[#1a6ba8] text-white", meta: "text-blue-200" };
     case "handler":
-      return {
-        label: "Handläggare",
-        side: "right" as const,
-        bubble: "bg-[#1a6ba8] text-white",
-        meta: "text-blue-200",
-      };
+      return { label: senderName ?? "Handläggare", side: "right" as const, bubble: "bg-[#1a6ba8] text-white", meta: "text-blue-200" };
     case "contractor":
-      return {
-        label: "Hantverkare",
-        side: "left" as const,
-        bubble: "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200",
-        meta: "text-emerald-500",
-      };
+      return { label: senderName ?? "Servicepersonal", side: "left" as const, bubble: "bg-amber-50 text-gray-800 border border-amber-200", meta: "text-amber-700" };
   }
 }
 
@@ -124,6 +105,7 @@ export default function CaseDetailPage() {
   const closedIds = useClosedCases();
   const manualIds = useManualCases();
   const urgencyOverrides = useUrgencyOverrides();
+  const stages = useCaseStages();
 
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
@@ -163,15 +145,14 @@ export default function CaseDetailPage() {
     fetchCase();
   }, [fetchCase]);
 
-  const isClosed =
+  const isBooked = stages[caseId] === "booked";
+  const isReallyClosed =
     closedIds.has(caseId) ||
     caseData?.status === "CLOSED" ||
     caseData?.status === "ARCHIVED";
-
+  const isClosed = isReallyClosed || isBooked;
   const isManual =
     !isClosed && (manualIds.has(caseId) || caseData?.status === "ESCALATED");
-
-  const isBokat = caseData?.status === "IN_PROGRESS" && !isClosed && !isManual;
 
   const currentUrgency: Urgency = urgencyOverrides[caseId] ?? "LOW";
 
@@ -181,18 +162,18 @@ export default function CaseDetailPage() {
         id: m.id,
         sender: m.fromResident
           ? "resident"
-          : isManual || i === (caseData?.messages.length ?? 0) - 1
+          : i === (caseData?.messages.length ?? 0) - 1
           ? "handler"
           : "bo",
         senderName: m.fromResident
           ? (caseData?.residentName ?? "Hyresgäst")
-          : isManual
-          ? "Handläggare"
+          : i === (caseData?.messages.length ?? 0) - 1
+          ? "Karin"
           : undefined,
         body: m.body,
         sentAt: m.sentAt,
       })),
-    [caseData, isManual],
+    [caseData],
   );
 
   if (loading) {
@@ -235,27 +216,28 @@ export default function CaseDetailPage() {
 
   function confirmForward() {
     setForwardSent(true);
-    setTimeout(() => setForwardOpen(false), 1400);
+    setTimeout(() => setForwardOpen(false), 1200);
   }
 
-  async function handleMarkManual() {
+  function confirmMarkManual() {
     if (
-      !window.confirm(
-        "Markera som manuellt fall? Bo slutar svara och ärendet flyttas till Manuella fall.",
+      window.confirm(
+        "Markera detta ärende som manuellt fall? Det flyttas till fliken Manuella fall och Bo slutar svara.",
       )
-    )
-      return;
-    markManual(caseId);
-    await fetch(`/api/cases/${caseId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "ESCALATED" }),
-    }).catch(() => null);
-    router.push("/dashboard?filter=manuella");
+    ) {
+      markManual(caseId);
+      fetch(`/api/cases/${caseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ESCALATED" }),
+      }).catch(() => null);
+      router.push("/dashboard?filter=manuella");
+    }
   }
 
   async function handleClose() {
     closeCase(caseId);
+    setCaseStage(caseId, null);
     await fetch(`/api/cases/${caseId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -266,30 +248,21 @@ export default function CaseDetailPage() {
 
   async function handleReopen() {
     reopenCase(caseId);
-    unmarkManual(caseId);
-    await fetch(`/api/cases/${caseId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "IN_PROGRESS" }),
-    }).catch(() => null);
-    router.push("/dashboard");
-  }
-
-  async function handleTakeOver() {
+    setCaseStage(caseId, null);
     markManual(caseId);
     await fetch(`/api/cases/${caseId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "IN_PROGRESS" }),
     }).catch(() => null);
-    await fetchCase();
+    router.push("/dashboard?filter=manuella");
   }
 
   async function sendReply(e: React.FormEvent) {
     e.preventDefault();
     if (!reply.trim() || !caseData) return;
     setSending(true);
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 250));
     setCaseData({
       ...caseData,
       messages: [
@@ -320,8 +293,7 @@ export default function CaseDetailPage() {
         {/* ===== KONVERSATION ===== */}
         <div className="space-y-4 lg:col-span-2">
           <div className="rounded-lg border border-gray-200 bg-white p-6">
-            {/* Header */}
-            <div className="mb-5 flex items-start justify-between gap-3">
+            <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">{caseData.subject}</h1>
                 <p className="mt-1 text-sm text-gray-500">
@@ -331,56 +303,52 @@ export default function CaseDetailPage() {
                   )}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <UrgencyBadge urgency={currentUrgency} />
-                <StatusBadge status={caseData.status} />
-              </div>
+              <StatusBadge status={caseData.status} />
             </div>
 
-            {/* Tabs */}
-            <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1">
-              {(["resident", "contractor"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                    activeTab === tab
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {tab === "resident" ? "Meddelanden" : "Hantverkare"}
-                </button>
-              ))}
+            {/* Tabs – underline style */}
+            <div className="mb-4 flex gap-1 border-b border-gray-200">
+              {([
+                { key: "resident", label: "Hyresgäst" },
+                { key: "contractor", label: "Servicepersonal" },
+              ] as const).map((t) => {
+                const active = activeTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setActiveTab(t.key)}
+                    className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
+                      active
+                        ? "border-[#1a6ba8] text-[#1a6ba8]"
+                        : "border-transparent text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Thread */}
             <ThreadView messages={activeMessages} />
 
-            {/* Status-banner */}
-            {!isClosed && !isManual && (
-              <div className="mt-6 rounded-md border border-[#1a6ba8]/20 bg-[#1a6ba8]/5 px-4 py-3 text-sm text-[#1a6ba8]">
-                Bo jobbar med detta ärende och svarar hyresgästen automatiskt.
-              </div>
-            )}
-
-            {isManual && (
-              <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Detta är ett manuellt fall — dina svar skickas direkt till hyresgästen.
-              </div>
-            )}
-
-            {/* Svarsfält för manuella ärenden */}
-            {isManual && !isClosed && (
-              <form onSubmit={sendReply} className="mt-4 flex flex-col gap-2">
+            {activeTab === "resident" && isManual && !isClosed && (
+              <form onSubmit={sendReply} className="mt-6 border-t border-gray-100 pt-4">
+                <label htmlFor="reply" className="mb-2 block text-sm font-medium text-gray-700">
+                  Svara på ärendet
+                </label>
                 <textarea
+                  id="reply"
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
-                  rows={3}
-                  placeholder="Skriv ett svar till hyresgästen…"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#1a6ba8] focus:ring-2 focus:ring-[#1a6ba8]/20"
+                  rows={4}
+                  placeholder="Skriv ditt svar till hyresgästen…"
+                  className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#1a6ba8] focus:ring-2 focus:ring-[#1a6ba8]/20"
                 />
-                <div className="flex justify-end">
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-xs text-gray-400">
+                    Detta är ett manuellt fall — dina svar skickas direkt till hyresgästen.
+                  </p>
                   <button
                     type="submit"
                     disabled={sending || !reply.trim()}
@@ -391,177 +359,135 @@ export default function CaseDetailPage() {
                 </div>
               </form>
             )}
+
+            {activeTab === "resident" && !isManual && !isClosed && (
+              <div className="mt-6 rounded-md border border-[#1a6ba8]/20 bg-[#1a6ba8]/5 px-4 py-3 text-sm text-[#1a6ba8]">
+                Bo jobbar med detta ärende. Markera det som manuellt fall om du vill ta över.
+              </div>
+            )}
+
+            {activeTab === "contractor" && (
+              <div className="mt-6 border-t border-gray-100 pt-4">
+                <p className="mb-3 text-xs text-gray-500">
+                  Åtgärder mot servicepersonal
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f]"
+                  >
+                    Kontakta servicepersonal
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Bekräfta tid
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* ===== SIDOPANEL ===== */}
         <div className="space-y-4">
-          {/* Bokningsstatus (bara IN_PROGRESS) */}
-          {isBokat && (
+          {/* Bokningsstatus – only when isBooked */}
+          {isBooked && (
             <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h2 className="mb-4 text-sm font-semibold text-gray-700">Bokningsstatus</h2>
-              <ol className="space-y-3">
-                {BOOKING_STEPS.map((step, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        step.state === "done"
-                          ? "bg-[#1a6ba8] text-white"
-                          : step.state === "active"
-                          ? "ring-2 ring-[#1a6ba8] text-[#1a6ba8]"
-                          : "bg-gray-100 text-gray-400"
-                      }`}
-                    >
-                      {step.state === "done" ? "✓" : i + 1}
-                    </span>
-                    <div>
-                      <p
-                        className={`text-sm font-medium ${
-                          step.state === "pending" ? "text-gray-400" : "text-gray-800"
-                        }`}
-                      >
-                        {step.label}
-                      </p>
-                      {step.sub && (
-                        <p
-                          className={`text-xs ${
-                            step.state === "pending" ? "text-gray-300" : "text-gray-500"
-                          }`}
-                        >
-                          {step.sub}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
+              <h2 className="mb-3 text-sm font-medium text-gray-700">Bokningsstatus</h2>
+              <ol className="relative space-y-3">
+                {BOOKING_STEPS.map((step, i) => {
+                  const isLast = i === BOOKING_STEPS.length - 1;
+                  const circle =
+                    step.state === "done"
+                      ? "bg-emerald-500 text-white border-emerald-500"
+                      : step.state === "active"
+                      ? "bg-[#1a6ba8] text-white border-[#1a6ba8] ring-4 ring-[#1a6ba8]/20"
+                      : "bg-white text-gray-400 border-gray-300";
+                  const labelClass =
+                    step.state === "pending"
+                      ? "text-gray-400"
+                      : step.state === "active"
+                      ? "text-[#1a6ba8] font-medium"
+                      : "text-gray-800 font-medium";
+                  return (
+                    <li key={step.label} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs ${circle}`}>
+                          {step.state === "done" ? "✓" : i + 1}
+                        </div>
+                        {!isLast && (
+                          <div className={`mt-1 w-px flex-1 ${step.state === "done" ? "bg-emerald-300" : "bg-gray-200"}`} />
+                        )}
+                      </div>
+                      <div className="pb-2">
+                        <p className={`text-sm ${labelClass}`}>{step.label}</p>
+                        {step.sub && step.state !== "pending" && (
+                          <p className="mt-0.5 text-xs text-gray-500">{step.sub}</p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             </div>
           )}
 
-          {/* Brådskandhet */}
-          {!isClosed && (
+          {/* Prioritet – only when manual */}
+          {isManual && !isClosed && (
             <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Brådskandhet</h2>
-              <div className="flex flex-wrap gap-1.5">
+              <h2 className="mb-3 text-sm font-medium text-gray-700">Prioritet</h2>
+              <label htmlFor="urgency" className="sr-only">Prioritet</label>
+              <select
+                id="urgency"
+                value={currentUrgency}
+                onChange={(e) => setUrgencyOverride(caseId, e.target.value as Urgency)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a6ba8] focus:ring-2 focus:ring-[#1a6ba8]/20"
+              >
                 {URGENCY_OPTIONS.map((u) => (
-                  <button
-                    key={u}
-                    onClick={() => setUrgencyOverride(caseId, u)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                      currentUrgency === u
-                        ? "bg-[#1a6ba8] text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {urgencyLabel(u)}
-                  </button>
+                  <option key={u} value={u}>{urgencyLabel(u)}</option>
                 ))}
-              </div>
+              </select>
+              <p className="mt-2 text-xs text-gray-400">Ändringar syns även i översikten.</p>
             </div>
           )}
 
-          {/* Vidarebefordra */}
+          {/* Manuellt fall – when not already manual */}
           {!isClosed && !isManual && (
             <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Vidarebefordra</h2>
-              {routingCats.length > 0 ? (
-                <>
-                  <select
-                    value={selectedRoutingId}
-                    onChange={(e) => setSelectedRoutingId(e.target.value)}
-                    className="mb-2 w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-[#1a6ba8]"
-                  >
-                    {routingCats.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} — {c.email}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={openForward}
-                    className="w-full rounded-md bg-[#1a6ba8] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f]"
-                  >
-                    Skapa ärendesammanfattning
-                  </button>
-                </>
-              ) : (
-                <p className="text-xs text-gray-400">
-                  Inga mottagare konfigurerade.{" "}
-                  <Link href="/dashboard/settings" className="underline">
-                    Inställningar
-                  </Link>
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Åtgärder */}
-          {!isClosed && (
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-gray-700">Åtgärder</h2>
-              <div className="flex flex-col gap-2">
-                {(caseData.status === "READY_FOR_REVIEW" ||
-                  caseData.status === "WAITING_FOR_RESIDENT" ||
-                  caseData.status === "COLLECTING_INFORMATION") && (
-                  <button
-                    onClick={handleTakeOver}
-                    className="w-full rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f]"
-                  >
-                    Ta över
-                  </button>
-                )}
-                {!isManual && (
-                  <button
-                    onClick={handleMarkManual}
-                    className="w-full rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
-                  >
-                    Manuellt fall
-                  </button>
-                )}
-                <button
-                  onClick={handleClose}
-                  className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                >
-                  Avsluta ärende
-                </button>
-              </div>
-            </div>
-          )}
-
-          {isClosed && (
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h2 className="mb-1 text-sm font-semibold text-gray-700">Avslutat ärende</h2>
-              <p className="mb-3 text-xs text-gray-400">Du kan återöppna ärendet om det behövs.</p>
+              <h2 className="mb-1 text-sm font-medium text-gray-700">Manuellt fall</h2>
+              <p className="mb-3 text-xs text-gray-400">
+                Ta över ärendet manuellt. Det flyttas till fliken Manuella fall.
+              </p>
               <button
-                onClick={handleReopen}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                type="button"
+                onClick={confirmMarkManual}
+                className="w-full rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
               >
-                Öppna ärende igen
+                Manuellt fall
               </button>
             </div>
           )}
 
           {/* Information */}
           <div className="rounded-lg border border-gray-200 bg-white p-4">
-            {isClosed ? (
+            {(isManual || isClosed) ? (
               <button
                 type="button"
                 onClick={() => setInfoOpen((v) => !v)}
                 className="flex w-full items-center justify-between text-left"
+                aria-expanded={infoOpen}
               >
-                <span className="text-sm font-semibold text-gray-700">Information</span>
-                <span
-                  className={`text-gray-400 transition-transform ${infoOpen ? "rotate-180" : ""}`}
-                >
-                  ▾
-                </span>
+                <span className="text-sm font-medium text-gray-700">Information</span>
+                <span className={`text-gray-400 transition-transform ${infoOpen ? "rotate-180" : ""}`} aria-hidden>▾</span>
               </button>
             ) : (
-              <h2 className="mb-3 text-sm font-semibold text-gray-700">Information</h2>
+              <h2 className="mb-3 text-sm font-medium text-gray-700">Information</h2>
             )}
 
-            {(!isClosed || infoOpen) && (
-              <div className={isClosed ? "mt-3" : ""}>
+            {(!(isManual || isClosed) || infoOpen) && (
+              <div className={(isManual || isClosed) ? "mt-3" : ""}>
                 <dl className="space-y-2 text-sm">
                   {caseData.category && (
                     <div className="flex justify-between">
@@ -581,9 +507,13 @@ export default function CaseDetailPage() {
                       {new Date(caseData.createdAt).toLocaleDateString("sv-SE")}
                     </dd>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500">Meddelanden</dt>
-                    <dd className="font-medium text-gray-900">{caseData.messages.length}</dd>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">Tillträde</dt>
+                    <dd>
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        Ej bekräftat
+                      </span>
+                    </dd>
                   </div>
                 </dl>
 
@@ -593,72 +523,135 @@ export default function CaseDetailPage() {
                   </div>
                 )}
 
-                {caseData.category && caseData.category.fields.length > 0 && (
+                {caseData.category && (
                   <>
-                    <hr className="my-3 border-gray-100" />
+                    <hr className="my-4 border-gray-100" />
                     <FieldValuesList
-                      fieldValues={caseData.fieldValues}
-                      requiredFields={caseData.category.fields}
+                      fieldValues={caseData.fieldValues.filter((fv) => fv.field.key !== "severity")}
+                      requiredFields={caseData.category.fields.filter((f) => f.key !== "severity")}
                     />
                   </>
                 )}
               </div>
             )}
           </div>
+
+          {/* Skicka vidare – only when manual */}
+          {!isClosed && isManual && (
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <h2 className="mb-1 text-sm font-medium text-gray-700">Skicka vidare</h2>
+              <p className="mb-3 text-xs text-gray-400">
+                Välj kategori — mottagaradressen hämtas automatiskt från inställningarna.
+              </p>
+              <label htmlFor="routing-cat" className="sr-only">Kategori</label>
+              <select
+                id="routing-cat"
+                value={selectedRoutingId}
+                onChange={(e) => setSelectedRoutingId(e.target.value)}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a6ba8] focus:ring-2 focus:ring-[#1a6ba8]/20"
+              >
+                {routingCats.length === 0 && (
+                  <option value="">Inga kategorier — lägg till i Inställningar</option>
+                )}
+                {routingCats.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {selectedRouting && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Skickas till <span className="font-medium text-gray-800">{selectedRouting.email}</span>
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={!selectedRouting}
+                onClick={openForward}
+                className="mt-3 w-full rounded-md bg-[#1a6ba8] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f] disabled:opacity-40"
+              >
+                Skicka vidare ärende
+              </button>
+            </div>
+          )}
+
+          {/* Öppna/Avsluta */}
+          {isReallyClosed ? (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleReopen}
+                className="text-sm font-medium text-gray-600 underline-offset-4 transition hover:text-gray-900 hover:underline"
+              >
+                Öppna ärende igen
+              </button>
+            </div>
+          ) : (isManual || isBooked) ? (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-sm font-medium text-[#1a6ba8] underline-offset-4 transition hover:text-[#155a8f] hover:underline"
+              >
+                Avsluta ärende
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* ===== FORWARD MODAL ===== */}
-      {forwardOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">
-                Skicka ärende till {selectedRouting?.email ?? "…"}
-              </h2>
-              <button
-                onClick={() => setForwardOpen(false)}
-                className="rounded-md p-1 text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
+      {forwardOpen && selectedRouting && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !forwardLoading && setForwardOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900">Skicka vidare ärende</h3>
+            <p className="mt-1 text-sm text-gray-500">Granska sammanfattningen innan ärendet skickas.</p>
+
+            <dl className="mt-4 space-y-1 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-gray-500">Kategori</dt>
+                <dd className="font-medium text-gray-900">{selectedRouting.name}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-gray-500">Skickas till</dt>
+                <dd className="font-medium text-gray-900">{selectedRouting.email}</dd>
+              </div>
+            </dl>
+
+            <div className="mt-4">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">AI-sammanfattning</p>
+              <div className="min-h-32 whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                {forwardLoading && <span className="text-gray-400">Genererar sammanfattning…</span>}
+                {!forwardLoading && forwardError && <span className="text-red-500">{forwardError}</span>}
+                {!forwardLoading && !forwardError && forwardSummary}
+              </div>
             </div>
 
-            {forwardLoading && (
-              <div className="py-8 text-center text-sm text-gray-400">
-                Genererar sammanfattning…
+            {forwardSent ? (
+              <div className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                ✓ Skickat till {selectedRouting.email}
               </div>
-            )}
-            {forwardError && !forwardLoading && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {forwardError}
-              </div>
-            )}
-            {!forwardLoading && !forwardError && forwardSummary && (
-              <div className="rounded-md border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800 whitespace-pre-wrap">
-                {forwardSummary}
-              </div>
-            )}
-            {forwardSent && (
-              <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                ✓ Ärendesammanfattning skickad!
-              </div>
-            )}
-
-            {!forwardSent && !forwardLoading && (
-              <div className="mt-4 flex justify-end gap-2">
+            ) : (
+              <div className="mt-5 flex justify-end gap-2">
                 <button
+                  type="button"
                   onClick={() => setForwardOpen(false)}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  disabled={forwardLoading}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >
                   Avbryt
                 </button>
                 <button
+                  type="button"
                   onClick={confirmForward}
-                  disabled={!forwardSummary}
-                  className="rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f] disabled:opacity-50"
+                  disabled={forwardLoading || !forwardSummary}
+                  className="rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white hover:bg-[#155a8f] disabled:opacity-40"
                 >
-                  Skicka
+                  Godkänn & skicka
                 </button>
               </div>
             )}
@@ -676,16 +669,10 @@ function ThreadView({ messages }: { messages: ThreadMessage[] }) {
   return (
     <div className="flex flex-col gap-3">
       {messages.map((msg) => {
-        const m = senderMeta(msg.sender);
+        const m = senderMeta(msg.sender, msg.senderName);
         return (
-          <div
-            key={msg.id}
-            className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
-          >
+          <div key={msg.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
             <div className={`max-w-[80%] rounded-lg px-4 py-3 text-sm ${m.bubble}`}>
-              {msg.senderName && (
-                <p className={`mb-1 text-xs font-semibold ${m.meta}`}>{msg.senderName}</p>
-              )}
               <p className="whitespace-pre-wrap">{msg.body}</p>
               <p className={`mt-1.5 text-right text-xs ${m.meta}`}>
                 {m.label} ·{" "}
