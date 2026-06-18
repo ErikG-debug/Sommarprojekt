@@ -26,9 +26,9 @@ const URGENCY_RANK: Record<Urgency, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGE
 
 const TABS: { label: string; value: FilterValue }[] = [
   { label: "Bo hanterar",           value: "BO_HANDLES" },
+  { label: "Manuella fall",         value: "MANUAL" },
   { label: "Redo för godkännande",  value: "READY" },
   { label: "Bokat",                 value: "BOOKED" },
-  { label: "Manuella fall",         value: "MANUAL" },
   { label: "Avslutade",             value: "CLOSED" },
   { label: "Alla",                  value: "ALL" },
 ];
@@ -127,7 +127,7 @@ export function DashboardContent() {
       case "BOOKED":     return c.isBooked;
       case "MANUAL":     return !c.isClosed && c.isManual;
       case "CLOSED":     return c.isClosed;
-      case "ALL":        return true;
+      case "ALL":        return !c.isClosed;
     }
   }
 
