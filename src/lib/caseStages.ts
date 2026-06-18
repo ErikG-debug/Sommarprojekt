@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type CaseStage = "ready_for_approval" | "booked";
+export type CaseStage = "ready_for_approval" | "booked" | "time_locked";
 
 const KEY = "bodesk:caseStages";
 const EVT = "bodesk:caseStages";
