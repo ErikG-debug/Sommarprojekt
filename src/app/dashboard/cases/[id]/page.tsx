@@ -6,11 +6,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FieldValuesList } from "@/components/cases/FieldValuesList";
 import { closeCase, reopenCase, useClosedCases } from "@/lib/closedCases";
-import {
-  markManual,
-  unmarkManual,
-  useManualCases,
-} from "@/lib/caseOverrides";
+import { markManual, unmarkManual, useManualCases } from "@/lib/caseOverrides";
 import { useCaseStages, setCaseStage } from "@/lib/caseStages";
 import { useRoutingCategories } from "@/lib/categories";
 import type { CaseStatus } from "@prisma/client";
@@ -68,8 +64,10 @@ export default function CaseDetailPage() {
   const manualIds = useManualCases();
   const stages = useCaseStages();
 
+  const [activeTab, setActiveTab] = useState<"resident" | "contractor">("resident");
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  const [confirmStep, setConfirmStep] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -102,9 +100,7 @@ export default function CaseDetailPage() {
     setLoading(false);
   }, [caseId]);
 
-  useEffect(() => {
-    fetchCase();
-  }, [fetchCase]);
+  useEffect(() => { fetchCase(); }, [fetchCase]);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -113,13 +109,15 @@ export default function CaseDetailPage() {
       .catch(() => setSignature(""));
   }, []);
 
+  // Reset confirm step when tab or reply changes
+  useEffect(() => { setConfirmStep(false); }, [activeTab, reply]);
+
   const isReallyClosed =
     closedIds.has(caseId) ||
     caseData?.status === "CLOSED" ||
     caseData?.status === "ARCHIVED";
   const isClosed = isReallyClosed;
-  const isManual =
-    !isClosed && (manualIds.has(caseId) || caseData?.status === "ESCALATED");
+  const isManual = !isClosed && (manualIds.has(caseId) || caseData?.status === "ESCALATED");
 
   const residentMessages: ThreadMessage[] = useMemo(
     () =>
@@ -141,11 +139,74 @@ export default function CaseDetailPage() {
     [caseData],
   );
 
-  if (loading) {
-    return <div className="py-20 text-center text-gray-400">Laddar ärende…</div>;
+  if (loading) return <div className="py-20 text-center text-gray-400">Laddar ärende…</div>;
+  if (!caseData) return <div className="py-20 text-center text-gray-500">Ärendet hittades inte.</div>;
+
+  // Promote to manual if needed, then send reply to resident
+  async function sendResidentReply() {
+    if (!reply.trim() || !caseData) return;
+    setSending(true);
+    try {
+      if (!isManual) {
+        markManual(caseId);
+        await fetch(`/api/cases/${caseId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "ESCALATED" }),
+        });
+      }
+      const res = await fetch(`/api/cases/${caseId}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: reply.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Kunde inte skicka svaret.");
+        return;
+      }
+      const { message } = await res.json();
+      setCaseData({ ...caseData, messages: [...caseData.messages, message], updatedAt: new Date().toISOString() });
+      setReply("");
+      setConfirmStep(false);
+    } finally {
+      setSending(false);
+    }
   }
-  if (!caseData) {
-    return <div className="py-20 text-center text-gray-500">Ärendet hittades inte.</div>;
+
+  function handleResidentSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reply.trim()) return;
+    if (!isManual && !confirmStep) {
+      setConfirmStep(true);
+      return;
+    }
+    sendResidentReply();
+  }
+
+  // Contractor tab: just marks as manual for now (real contractor messaging TBD)
+  async function handleContractorSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reply.trim()) return;
+    if (!isManual && !confirmStep) {
+      setConfirmStep(true);
+      return;
+    }
+    setSending(true);
+    try {
+      if (!isManual) {
+        markManual(caseId);
+        await fetch(`/api/cases/${caseId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "ESCALATED" }),
+        });
+      }
+      setReply("");
+      setConfirmStep(false);
+    } finally {
+      setSending(false);
+    }
   }
 
   async function openForward() {
@@ -182,22 +243,6 @@ export default function CaseDetailPage() {
     setTimeout(() => setForwardOpen(false), 1200);
   }
 
-  function confirmMarkManual() {
-    if (
-      window.confirm(
-        "Markera detta ärende som manuellt fall? Det flyttas till fliken Manuella fall och Bo slutar svara.",
-      )
-    ) {
-      markManual(caseId);
-      fetch(`/api/cases/${caseId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "ESCALATED" }),
-      }).catch(() => null);
-      router.push("/dashboard?filter=manuella");
-    }
-  }
-
   async function handleClose() {
     closeCase(caseId);
     setCaseStage(caseId, null);
@@ -221,32 +266,11 @@ export default function CaseDetailPage() {
     router.push("/dashboard?filter=manuella");
   }
 
-  async function sendReply(e: React.FormEvent) {
-    e.preventDefault();
-    if (!reply.trim() || !caseData) return;
-    setSending(true);
-    try {
-      const res = await fetch(`/api/cases/${caseId}/reply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: reply.trim() }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Kunde inte skicka svaret.");
-        return;
-      }
-      const { message } = await res.json();
-      setCaseData({
-        ...caseData,
-        messages: [...caseData.messages, message],
-        updatedAt: new Date().toISOString(),
-      });
-      setReply("");
-    } finally {
-      setSending(false);
-    }
-  }
+  const onSubmit = activeTab === "resident" ? handleResidentSubmit : handleContractorSubmit;
+  const placeholder =
+    activeTab === "resident"
+      ? "Skriv ditt svar till hyresgästen…"
+      : "Skriv ditt meddelande till servicepersonalen…";
 
   return (
     <div>
@@ -263,8 +287,9 @@ export default function CaseDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* ===== KONVERSATION ===== */}
         <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
-            <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="rounded-xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 px-6 pt-6 pb-4 border-b border-gray-100">
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">{caseData.subject}</h1>
                 <p className="mt-0.5 text-sm text-gray-500">
@@ -277,73 +302,107 @@ export default function CaseDetailPage() {
               <StatusBadge status={caseData.status} />
             </div>
 
-            <ThreadView messages={residentMessages} />
+            {/* Tabs */}
+            <div className="flex gap-0 border-b border-gray-100 px-6">
+              {([
+                { key: "resident",   label: "Boende" },
+                { key: "contractor", label: "Servicepersonal" },
+              ] as const).map((t) => {
+                const active = activeTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setActiveTab(t.key)}
+                    className={`-mb-px border-b-2 px-4 py-3 text-sm font-medium transition ${
+                      active
+                        ? "border-[#1a6ba8] text-[#1a6ba8]"
+                        : "border-transparent text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
 
-            {isManual && !isClosed && (
-              <form onSubmit={sendReply} className="mt-6 border-t border-gray-100 pt-4">
-                <label htmlFor="reply" className="mb-2 block text-sm font-medium text-gray-700">
-                  Svara på ärendet
-                </label>
+            {/* Thread */}
+            <div className="px-6 pt-5">
+              {activeTab === "resident" ? (
+                <ThreadView messages={residentMessages} />
+              ) : (
+                <p className="py-8 text-center text-sm text-gray-400">
+                  Ingen konversation med servicepersonal ännu.
+                </p>
+              )}
+            </div>
+
+            {/* Reply form (always shown when not closed) */}
+            {!isClosed && (
+              <form onSubmit={onSubmit} className="border-t border-gray-100 px-6 pt-4 pb-5 mt-4">
                 <div className="overflow-hidden rounded-lg border border-gray-300 focus-within:border-[#1a6ba8] focus-within:ring-2 focus-within:ring-[#1a6ba8]/20">
                   <textarea
-                    id="reply"
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
-                    rows={4}
-                    placeholder="Skriv ditt svar till hyresgästen…"
-                    className="w-full resize-y px-3 py-2 text-sm outline-none"
+                    rows={3}
+                    placeholder={placeholder}
+                    className="w-full resize-none px-3 py-2 text-sm outline-none"
                   />
-                  {signature && (
+                  {activeTab === "resident" && signature && (
                     <div className="border-t border-dashed border-gray-200 px-3 py-2">
                       <p className="whitespace-pre-wrap text-xs text-gray-400">{signature}</p>
                     </div>
                   )}
                 </div>
-                <div className="mt-2 flex items-center justify-between">
-                  <p className="text-xs text-gray-400">
-                    Signaturen läggs till automatiskt vid utskick.
-                  </p>
-                  <button
-                    type="submit"
-                    disabled={sending || !reply.trim()}
-                    className="rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f] disabled:opacity-50"
-                  >
-                    {sending ? "Skickar…" : "Skicka svar"}
-                  </button>
-                </div>
+
+                {/* Confirmation step */}
+                {confirmStep && !isManual ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-sm font-medium text-amber-800">Är du säker?</p>
+                    <p className="mt-0.5 text-xs text-amber-700">
+                      Bo hanterar detta ärende. Om du skickar tar du över och ärendet markeras som
+                      manuellt fall.
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmStep(false)}
+                        className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                      >
+                        Avbryt
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={sending}
+                        className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        {sending ? "Skickar…" : "Bekräfta & ta över"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex items-center justify-end gap-3">
+                    {activeTab === "resident" && !isManual && (
+                      <p className="text-xs text-gray-400">
+                        Att svara markerar ärendet som manuellt fall
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={sending || !reply.trim()}
+                      className="rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f] disabled:opacity-50"
+                    >
+                      {sending ? "Skickar…" : activeTab === "resident" ? "Skicka svar" : "Kontakta"}
+                    </button>
+                  </div>
+                )}
               </form>
             )}
-
-            {!isManual && !isClosed && (
-              <div className="mt-6 rounded-md border border-[#1a6ba8]/20 bg-[#1a6ba8]/5 px-4 py-3 text-sm text-[#1a6ba8]">
-                Bo jobbar med detta ärende. Markera det som manuellt fall om du vill ta över.
-              </div>
-            )}
-
           </div>
         </div>
 
         {/* ===== SIDOPANEL ===== */}
         <div className="space-y-4">
-
-
-          {/* Manuellt fall – when not already manual */}
-          {!isClosed && !isManual && (
-            <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
-              <h2 className="mb-1 text-sm font-medium text-gray-700">Manuellt fall</h2>
-              <p className="mb-3 text-xs text-gray-400">
-                Ta över ärendet manuellt. Det flyttas till fliken Manuella fall.
-              </p>
-              <button
-                type="button"
-                onClick={confirmMarkManual}
-                className="w-full rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
-              >
-                Manuellt fall
-              </button>
-            </div>
-          )}
-
           {/* Information */}
           <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
             {(isManual || isClosed) ? (
