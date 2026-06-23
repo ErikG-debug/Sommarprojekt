@@ -12,17 +12,23 @@ const ARCHIVE_TIMEOUT_DAYS = 7;
 const GDPR_DELETE_DAYS = 90;
 
 export async function processInboundEmail(email: InboundEmail): Promise<void> {
-  // Försök matcha på To-adress, annars ta första bolaget (MVP med ett bolag)
-  let company = await prisma.company.findFirst({
-    where: { intakeEmail: email.to.toLowerCase() },
-    include: { categories: { include: { fields: { orderBy: { order: "asc" } } } } },
-  });
+  const companyInclude = {
+    categories: { include: { fields: { orderBy: { order: "asc" as const } } } },
+  };
 
-  if (!company) {
-    company = await prisma.company.findFirst({
-      include: { categories: { include: { fields: { orderBy: { order: "asc" } } } } },
-    });
-  }
+  // Matcha på To-adress, sedan bolaget med e-postkonto kopplat, annars första bolaget
+  let company =
+    (await prisma.company.findFirst({
+      where: { intakeEmail: email.to.toLowerCase() },
+      include: companyInclude,
+    })) ??
+    (await prisma.company.findFirst({
+      where: { emailAccount: { isNot: null } },
+      include: companyInclude,
+    })) ??
+    (await prisma.company.findFirst({ include: companyInclude }));
+
+  console.log(`Bolag valt: ${company?.id} (${company?.name}) för inkommande mail till ${email.to}`);
 
   const aiSignature = company?.aiSignature?.trim() ?? "";
 
