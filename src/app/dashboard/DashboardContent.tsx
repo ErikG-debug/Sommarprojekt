@@ -7,39 +7,35 @@ import { CaseRow } from "@/components/cases/CaseRow";
 import { ReviewDeck, type ReviewCase } from "@/components/cases/ReviewDeck";
 import { ThermalStripe } from "@/components/ui/ThermalStripe";
 import { useClosedCases, closeCase } from "@/lib/closedCases";
-import { useManualCases, useUrgencyOverrides, markManual } from "@/lib/caseOverrides";
+import { useManualCases, markManual } from "@/lib/caseOverrides";
 import { useCaseStages, setCaseStage } from "@/lib/caseStages";
-import type { Urgency } from "@/lib/types";
 import type { CaseStatus } from "@prisma/client";
 
 type FilterValue = "ALL" | "READY" | "MANUAL" | "CLOSED";
-type SortValue = "date_desc" | "date_asc" | "prio_desc" | "prio_asc";
+type SortValue = "date_desc" | "date_asc";
 
 const SORT_OPTIONS: { value: SortValue; label: string }[] = [
   { value: "date_desc", label: "Senast tillagt" },
-  { value: "date_asc", label: "Äldst först" },
-  { value: "prio_desc", label: "Prioritet: hög → låg" },
-  { value: "prio_asc", label: "Prioritet: låg → hög" },
+  { value: "date_asc",  label: "Äldst först" },
 ];
 
-const URGENCY_RANK: Record<Urgency, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
-
 const TABS: { label: string; value: FilterValue }[] = [
-  { label: "Alla",                  value: "ALL" },
-  { label: "Redo för godkännande", value: "READY" },
-  { label: "Manuella fall",        value: "MANUAL" },
-  { label: "Avslutade",            value: "CLOSED" },
+  { label: "Alla",         value: "ALL" },
+  { label: "Godkänn",     value: "READY" },
+  { label: "Manuella fall", value: "MANUAL" },
+  { label: "Avslutade",   value: "CLOSED" },
 ];
 
 const FILTER_MAP: Record<string, FilterValue> = {
-  alla:     "ALL",
-  redo:     "READY",
-  manuella: "MANUAL",
+  alla:      "ALL",
+  redo:      "READY",
+  godkann:   "READY",
+  manuella:  "MANUAL",
   avslutade: "CLOSED",
-  ALL:      "ALL",
-  READY:    "READY",
-  MANUAL:   "MANUAL",
-  CLOSED:   "CLOSED",
+  ALL:    "ALL",
+  READY:  "READY",
+  MANUAL: "MANUAL",
+  CLOSED: "CLOSED",
 };
 
 const FILTER_SLUG: Record<FilterValue, string> = {
@@ -73,7 +69,6 @@ export function DashboardContent() {
 
   const closedIds = useClosedCases();
   const manualIds = useManualCases();
-  const urgencyOverrides = useUrgencyOverrides();
   const stages = useCaseStages();
 
   useEffect(() => {
@@ -86,7 +81,6 @@ export function DashboardContent() {
   }, []);
 
   type Enriched = RawCase & {
-    urgency: Urgency;
     isClosed: boolean;
     isManual: boolean;
     isReady: boolean;
@@ -104,10 +98,9 @@ export function DashboardContent() {
           !isClosed &&
           !isManual &&
           (stage === "ready_for_approval" || c.status === "READY_FOR_REVIEW");
-        const urgency: Urgency = urgencyOverrides[c.id] ?? "LOW";
-        return { ...c, urgency, isClosed, isManual, isReady };
+        return { ...c, isClosed, isManual, isReady };
       }),
-    [rawCases, closedIds, manualIds, urgencyOverrides, stages],
+    [rawCases, closedIds, manualIds, stages],
   );
 
   function matches(c: Enriched, f: FilterValue) {
@@ -123,14 +116,11 @@ export function DashboardContent() {
 
   let filteredCases = cases.filter((c) => matches(c, activeFilter));
   if (sortable) {
-    filteredCases = [...filteredCases].sort((a, b) => {
-      switch (sort) {
-        case "date_desc": return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-        case "date_asc":  return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
-        case "prio_desc": return URGENCY_RANK[b.urgency] - URGENCY_RANK[a.urgency];
-        case "prio_asc":  return URGENCY_RANK[a.urgency] - URGENCY_RANK[b.urgency];
-      }
-    });
+    filteredCases = [...filteredCases].sort((a, b) =>
+      sort === "date_asc"
+        ? new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+        : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
   }
 
   function countFor(f: FilterValue) {
@@ -155,7 +145,7 @@ export function DashboardContent() {
           subject: c.subject,
           residentEmail: c.residentEmail,
           residentName: c.residentName,
-          urgency: c.urgency,
+          urgency: "LOW" as const,
           category: c.category,
           property: c.property,
           summary: c.summary ?? "AI-sammanfattning saknas för detta ärende.",
@@ -166,7 +156,6 @@ export function DashboardContent() {
   );
 
   const handleApprove = (id: string) => {
-    // Teknikern godkänd — sätt stage och uppdatera status till IN_PROGRESS
     setCaseStage(id, null);
     fetch(`/api/cases/${id}`, {
       method: "PATCH",
@@ -174,7 +163,7 @@ export function DashboardContent() {
       body: JSON.stringify({ status: "IN_PROGRESS" }),
     }).catch(() => null);
     setRawCases((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: "IN_PROGRESS" as CaseStatus } : c))
+      prev.map((c) => (c.id === id ? { ...c, status: "IN_PROGRESS" as CaseStatus } : c)),
     );
   };
 
@@ -256,7 +245,6 @@ export function DashboardContent() {
               subject={c.subject}
               residentEmail={c.residentEmail}
               residentName={c.residentName}
-              urgency={c.urgency}
               tag={tagFor(c)}
               fromFilter={FILTER_SLUG[activeFilter]}
             />

@@ -1,16 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Mail,
-  MapPin,
-  User,
-  AlertTriangle,
-  Send,
-  ChevronDown,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, User, MapPin, ChevronDown, Check } from "lucide-react";
 import { ThermalStripe } from "@/components/ui/ThermalStripe";
 import { useContractors } from "@/lib/contractors";
 import { useCaseAssignees, setCaseAssignee } from "@/lib/caseAssignees";
@@ -60,13 +51,13 @@ export function ReviewDeck({ cases, onApprove, onManual }: Props) {
   }, [safeIndex, total]);
 
   const next = () => {
-    if (total === 0) return;
+    if (total <= 1) return;
     setDir(-1);
     setAnimKey((k) => k + 1);
     setIndex((i) => (i + 1) % total);
   };
   const prev = () => {
-    if (total === 0) return;
+    if (total <= 1) return;
     setDir(1);
     setAnimKey((k) => k + 1);
     setIndex((i) => (i - 1 + total) % total);
@@ -101,216 +92,210 @@ export function ReviewDeck({ cases, onApprove, onManual }: Props) {
 
   if (total === 0) {
     return (
-      <div className="rounded-xl border border-blue-100 bg-white p-12 text-center text-gray-500 shadow-sm shadow-blue-100">
-        Inga ärenden redo för godkännande just nu.
+      <div className="rounded-xl bg-white p-12 text-center text-gray-400 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
+        Inga ärenden att godkänna just nu.
       </div>
     );
   }
 
   const enterClass =
     dir === -1
-      ? "animate-[deck-in-right_280ms_ease-out]"
+      ? "animate-[deck-in-right_260ms_ease-out]"
       : dir === 1
-        ? "animate-[deck-in-left_280ms_ease-out]"
+        ? "animate-[deck-in-left_260ms_ease-out]"
         : "";
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-lg">
       <style>{`
         @keyframes deck-in-right {
-          0% { transform: translateX(40%) rotate(2deg); opacity: 0; }
-          100% { transform: translateX(0) rotate(0); opacity: 1; }
+          0%   { transform: translateX(38%) rotate(2.5deg); opacity: 0; }
+          100% { transform: translateX(0)   rotate(0deg);   opacity: 1; }
         }
         @keyframes deck-in-left {
-          0% { transform: translateX(-40%) rotate(-2deg); opacity: 0; }
-          100% { transform: translateX(0) rotate(0); opacity: 1; }
+          0%   { transform: translateX(-38%) rotate(-2.5deg); opacity: 0; }
+          100% { transform: translateX(0)    rotate(0deg);    opacity: 1; }
         }
       `}</style>
 
-      <div className="relative mt-2 h-[560px]">
+      {/* Stack wrapper — ghost cards peeking behind */}
+      <div className="relative pb-3">
+        {total > 2 && (
+          <div
+            className="absolute inset-x-6 top-4 bottom-0 rounded-2xl border border-gray-200 bg-[#eef0f3]"
+            style={{ zIndex: 10 }}
+          />
+        )}
+        {total > 1 && (
+          <div
+            className="absolute inset-x-3 top-2 bottom-0 rounded-2xl border border-gray-200 bg-[#f5f6f8]"
+            style={{ zIndex: 11 }}
+          />
+        )}
+
+        {/* Main card */}
         <div
           key={animKey}
-          className={`absolute inset-x-0 top-0 z-20 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-md shadow-blue-100/60 ${enterClass}`}
-          style={{ height: "100%" }}
+          className={`relative z-20 overflow-hidden rounded-2xl bg-white shadow-[0_4px_8px_rgba(0,0,0,0.08),0_16px_32px_rgba(0,0,0,0.07)] ${enterClass}`}
         >
           <ThermalStripe
             orientation="horizontal"
             className="pointer-events-none absolute inset-x-0 top-0 h-1"
           />
 
-          <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-6 pb-4 pt-5">
+          {/* ── Header ── */}
+          <div className="flex items-start justify-between gap-3 px-6 pt-6 pb-4 border-b border-gray-100">
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-lg font-semibold text-gray-900">{current.subject}</h2>
+              {current.category && (
+                <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                  {current.category.name}
+                </p>
+              )}
+              <h2 className="text-base font-semibold text-gray-900 leading-snug">
+                {current.subject}
+              </h2>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <span className="mr-1 rounded-md bg-gray-50 px-2 py-1 text-xs font-medium tabular-nums text-gray-600">
-                {safeIndex + 1}/{total}
-              </span>
-              <button
-                type="button"
-                onClick={prev}
-                aria-label="Föregående"
-                className="rounded-md p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-[#1a6ba8]"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={next}
-                aria-label="Nästa"
-                className="rounded-md p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-[#1a6ba8]"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            {total > 1 && (
+              <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+                <button
+                  type="button"
+                  onClick={prev}
+                  aria-label="Föregående"
+                  className="rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-[32px] text-center text-xs font-medium tabular-nums text-gray-400">
+                  {safeIndex + 1}/{total}
+                </span>
+                <button
+                  type="button"
+                  onClick={next}
+                  aria-label="Nästa"
+                  className="rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-4 px-6 py-5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <InfoRow icon={<User className="h-4 w-4" />} label="Boende">
-                {current.residentName ?? "—"}
-              </InfoRow>
-              <InfoRow icon={<Mail className="h-4 w-4" />} label="Kontakt">
-                <span className="truncate">{current.residentEmail}</span>
-                {current.contactPhone && (
-                  <span className="block text-xs text-gray-500">{current.contactPhone}</span>
-                )}
-              </InfoRow>
-              <InfoRow icon={<MapPin className="h-4 w-4" />} label="Adress">
-                {current.property?.name ?? "—"}
-              </InfoRow>
-
-              <div className="flex items-start gap-2.5">
-                <div className="mt-0.5 text-gray-400">
-                  <Send className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-                    Skickas till
-                  </div>
-                  {contractors.length === 0 ? (
-                    <div className="text-sm italic text-gray-500">
-                      Lägg till servicepersonal i inställningar
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setPickerOpen((v) => !v)}
-                        className="-ml-2 flex w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm text-gray-800 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#1a6ba8]/20"
-                      >
-                        <span className="min-w-0 flex-1 truncate">
-                          {currentContractor ? (
-                            <>
-                              <span className="font-medium">{currentContractor.name}</span>
-                              <span className="ml-1.5 text-xs text-gray-500">
-                                · {currentContractor.role}
-                              </span>
-                            </>
-                          ) : (
-                            "Välj mottagare"
-                          )}
-                        </span>
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${pickerOpen ? "rotate-180" : ""}`}
-                        />
-                      </button>
-                      {pickerOpen && (
-                        <>
-                          <button
-                            type="button"
-                            aria-hidden
-                            onClick={() => setPickerOpen(false)}
-                            className="fixed inset-0 z-30 cursor-default"
-                          />
-                          <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg shadow-blue-100/40">
-                            {contractors.map((c) => {
-                              const active = currentContractor?.id === c.id;
-                              return (
-                                <button
-                                  type="button"
-                                  key={c.id}
-                                  onClick={() => {
-                                    if (current) setCaseAssignee(current.id, c.id);
-                                    setPickerOpen(false);
-                                  }}
-                                  className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-[#1a6ba8]/5 ${active ? "bg-[#1a6ba8]/5" : ""}`}
-                                >
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block truncate font-medium text-gray-900">
-                                      {c.name}
-                                    </span>
-                                    <span className="block truncate text-xs text-gray-500">
-                                      {c.role} · {c.email}
-                                    </span>
-                                  </span>
-                                  {active && (
-                                    <span className="shrink-0 text-xs font-medium text-[#1a6ba8]">
-                                      Vald
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-blue-100 bg-[#1a6ba8]/[0.03] p-4">
-              <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#1a6ba8]">
-                AI-sammanfattning
-              </div>
+          {/* ── Body ── */}
+          <div className="space-y-4 px-6 pt-5 pb-5">
+            {/* Problem description */}
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#1a6ba8]">
+                Problembeskrivning till tekniker
+              </p>
               <p className="text-sm leading-relaxed text-gray-700">{current.summary}</p>
             </div>
 
-            <div className="text-xs text-gray-400">
-              Inrapporterat {new Date(current.reportedAt).toLocaleString("sv-SE")}
+            {/* Suggested technician */}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                Bo föreslår
+              </p>
+              {contractors.length === 0 ? (
+                <p className="text-sm italic text-gray-400">
+                  Lägg till servicepersonal i Inställningar
+                </p>
+              ) : currentContractor ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900">{currentContractor.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {currentContractor.role}
+                      {currentContractor.email && (
+                        <> · {currentContractor.email}</>
+                      )}
+                    </p>
+                  </div>
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen((v) => !v)}
+                      className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:border-[#1a6ba8] hover:text-[#1a6ba8]"
+                    >
+                      Ändra
+                      <ChevronDown
+                        className={`h-3 w-3 transition-transform ${pickerOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {pickerOpen && (
+                      <>
+                        <button
+                          type="button"
+                          aria-hidden
+                          onClick={() => setPickerOpen(false)}
+                          className="fixed inset-0 z-30 cursor-default"
+                        />
+                        <div className="absolute right-0 top-full z-40 mt-1.5 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                          {contractors.map((c) => {
+                            const active = currentContractor?.id === c.id;
+                            return (
+                              <button
+                                type="button"
+                                key={c.id}
+                                onClick={() => {
+                                  if (current) setCaseAssignee(current.id, c.id);
+                                  setPickerOpen(false);
+                                }}
+                                className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition hover:bg-[#1a6ba8]/5 ${active ? "bg-[#1a6ba8]/5" : ""}`}
+                              >
+                                <span className="min-w-0 flex-1">
+                                  <span className="block font-medium text-gray-900">{c.name}</span>
+                                  <span className="block text-xs text-gray-500">{c.role}</span>
+                                </span>
+                                {active && <Check className="h-4 w-4 shrink-0 text-[#1a6ba8]" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Ingen tekniker matchad</p>
+              )}
+            </div>
+
+            {/* Resident & property */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {current.residentName ?? current.residentEmail}
+              </span>
+              {current.property?.name && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {current.property.name}
+                </span>
+              )}
+              <span className="ml-auto">
+                {new Date(current.reportedAt).toLocaleDateString("sv-SE")}
+              </span>
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 flex gap-3 border-t border-gray-100 bg-white px-6 py-4">
+          {/* ── Actions ── */}
+          <div className="flex gap-2 border-t border-gray-100 bg-gray-50/70 px-6 py-4">
             <button
               type="button"
               onClick={handleManual}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-500 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
             >
-              <AlertTriangle className="h-4 w-4" />
-              MANUELLT
+              Manuellt fall
             </button>
             <button
               type="button"
               onClick={handleApprove}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#1a6ba8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#155689]"
+              className="flex-[2] rounded-lg bg-[#1a6ba8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#155689] active:scale-[0.98]"
             >
-              GODKÄNN
+              Godkänn tekniker
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoRow({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <div className="mt-0.5 text-gray-400">{icon}</div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</div>
-        <div className="truncate text-sm text-gray-800">{children}</div>
       </div>
     </div>
   );

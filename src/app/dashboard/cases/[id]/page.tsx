@@ -4,19 +4,15 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { URGENCY_OPTIONS, urgencyLabel } from "@/components/ui/UrgencyBadge";
 import { FieldValuesList } from "@/components/cases/FieldValuesList";
 import { closeCase, reopenCase, useClosedCases } from "@/lib/closedCases";
 import {
   markManual,
   unmarkManual,
   useManualCases,
-  setUrgencyOverride,
-  useUrgencyOverrides,
 } from "@/lib/caseOverrides";
 import { useCaseStages, setCaseStage } from "@/lib/caseStages";
 import { useRoutingCategories } from "@/lib/categories";
-import type { Urgency } from "@/lib/types";
 import type { CaseStatus } from "@prisma/client";
 
 type Sender = "resident" | "bo" | "handler" | "contractor";
@@ -104,7 +100,6 @@ export default function CaseDetailPage() {
 
   const closedIds = useClosedCases();
   const manualIds = useManualCases();
-  const urgencyOverrides = useUrgencyOverrides();
   const stages = useCaseStages();
 
   const [reply, setReply] = useState("");
@@ -161,8 +156,6 @@ export default function CaseDetailPage() {
   const isClosed = isReallyClosed || isBooked;
   const isManual =
     !isClosed && (manualIds.has(caseId) || caseData?.status === "ESCALATED");
-
-  const currentUrgency: Urgency = urgencyOverrides[caseId] ?? "LOW";
 
   const residentMessages: ThreadMessage[] = useMemo(
     () =>
@@ -457,24 +450,6 @@ export default function CaseDetailPage() {
             </div>
           )}
 
-          {/* Prioritet – only when manual */}
-          {isManual && !isClosed && (
-            <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
-              <h2 className="mb-3 text-sm font-medium text-gray-700">Prioritet</h2>
-              <label htmlFor="urgency" className="sr-only">Prioritet</label>
-              <select
-                id="urgency"
-                value={currentUrgency}
-                onChange={(e) => setUrgencyOverride(caseId, e.target.value as Urgency)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a6ba8] focus:ring-2 focus:ring-[#1a6ba8]/20"
-              >
-                {URGENCY_OPTIONS.map((u) => (
-                  <option key={u} value={u}>{urgencyLabel(u)}</option>
-                ))}
-              </select>
-              <p className="mt-2 text-xs text-gray-400">Ändringar syns även i översikten.</p>
-            </div>
-          )}
 
           {/* Manuellt fall – when not already manual */}
           {!isClosed && !isManual && (
