@@ -14,7 +14,19 @@ export default function SettingsPage() {
         <GmailConnect />
       </Suspense>
 
-      <SignatureEditor />
+      <SignatureEditor
+        field="signature"
+        label="Signatur — manuella svar"
+        description="Läggs till automatiskt när du svarar manuellt på ett ärende."
+        placeholder={"Med vänlig hälsning,\nFastighetsbolaget AB\nTel: 08-xxx xx xx"}
+      />
+
+      <SignatureEditor
+        field="aiSignature"
+        label="Signatur — AI-svar"
+        description="Läggs till i slutet av alla automatiska svar från Bo."
+        placeholder={"Med vänlig hälsning,\nBo · Fastighetsbolaget AB"}
+      />
 
       <CategoryEditor />
 

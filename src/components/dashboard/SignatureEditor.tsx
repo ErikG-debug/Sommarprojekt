@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-export function SignatureEditor() {
+interface Props {
+  field: "signature" | "aiSignature";
+  label: string;
+  description: string;
+  placeholder?: string;
+}
+
+export function SignatureEditor({ field, label, description, placeholder }: Props) {
   const [saved, setSaved] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
@@ -12,9 +19,9 @@ export function SignatureEditor() {
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
-      .then((data) => setSaved(data.signature ?? ""))
+      .then((data) => setSaved(data[field] ?? ""))
       .catch(() => setSaved(""));
-  }, []);
+  }, [field]);
 
   function startEdit() {
     setDraft(saved ?? "");
@@ -34,7 +41,7 @@ export function SignatureEditor() {
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signature: draft }),
+        body: JSON.stringify({ [field]: draft }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -51,17 +58,15 @@ export function SignatureEditor() {
   }
 
   if (saved === null) {
-    return <div className="h-32 animate-pulse rounded-md bg-gray-100" />;
+    return <div className="h-28 animate-pulse rounded-md bg-gray-100" />;
   }
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-semibold text-gray-900">E-postsignatur</h2>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Läggs automatiskt till i slutet av alla svar.
-          </p>
+          <h2 className="font-semibold text-gray-900">{label}</h2>
+          <p className="mt-0.5 text-sm text-gray-500">{description}</p>
         </div>
         {!editing && (
           <button
@@ -81,7 +86,7 @@ export function SignatureEditor() {
             onChange={(e) => setDraft(e.target.value)}
             rows={4}
             autoFocus
-            placeholder={"Med vänlig hälsning,\nFastighetsbolaget AB\nTel: 08-xxx xx xx"}
+            placeholder={placeholder ?? ""}
             className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#1a6ba8] focus:ring-2 focus:ring-[#1a6ba8]/20"
           />
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}

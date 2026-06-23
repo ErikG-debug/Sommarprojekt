@@ -33,6 +33,7 @@ model Company {
   name         String
   intakeEmail  String         @unique // unik adress dit property manager forwarderar
   signature    String?
+  aiSignature  String?
   createdAt    DateTime       @default(now())
   users        User[]
   properties   Property[]

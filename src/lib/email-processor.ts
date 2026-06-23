@@ -24,6 +24,8 @@ export async function processInboundEmail(email: InboundEmail): Promise<void> {
     });
   }
 
+  const aiSignature = company?.aiSignature?.trim() ?? "";
+
   if (!company) {
     console.warn(`Inget bolag hittades i databasen — ignorerar mail`);
     return;
@@ -178,11 +180,15 @@ export async function processInboundEmail(email: InboundEmail): Promise<void> {
     ? existingCase.subject
     : `Re: ${existingCase.subject}`;
 
+  const aiBody = aiSignature
+    ? `${analysis.replyMessage}\n\n${aiSignature}`
+    : analysis.replyMessage;
+
   const sentMessageId = await sendEmailAsPropertyManager({
     companyId: company.id,
     to: email.from,
     subject: replySubject,
-    body: analysis.replyMessage,
+    body: aiBody,
     inReplyTo: email.messageId,
     references: email.inReplyTo
       ? `${email.inReplyTo} ${email.messageId}`
@@ -193,7 +199,7 @@ export async function processInboundEmail(email: InboundEmail): Promise<void> {
     data: {
       caseId: existingCase.id,
       fromResident: false,
-      body: analysis.replyMessage,
+      body: aiBody,
       emailId: sentMessageId,
     },
   });
