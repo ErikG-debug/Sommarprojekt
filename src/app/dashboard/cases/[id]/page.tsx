@@ -15,7 +15,7 @@ import { useCaseStages, setCaseStage } from "@/lib/caseStages";
 import { useRoutingCategories } from "@/lib/categories";
 import type { CaseStatus } from "@prisma/client";
 
-type Sender = "resident" | "bo" | "handler" | "contractor";
+type Sender = "resident" | "bo" | "handler";
 
 type ThreadMessage = {
   id: string;
@@ -24,38 +24,6 @@ type ThreadMessage = {
   body: string;
   sentAt: string;
 };
-
-const CONTRACTOR_THREAD: ThreadMessage[] = [
-  {
-    id: "c1",
-    sender: "bo",
-    body: "Hej Anders! Vi har en akut vattenläcka under diskbänken. Kan du ta det idag eller imorgon?",
-    sentAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-  },
-  {
-    id: "c2",
-    sender: "contractor",
-    senderName: "Anders (Rörmokare)",
-    body: "Hej! Imorgon onsdag funkar. Jag kan mellan 14–16.",
-    sentAt: new Date(Date.now() - 1000 * 60 * 60 * 2.5).toISOString(),
-  },
-  {
-    id: "c3",
-    sender: "handler",
-    senderName: "Karin",
-    body: "Perfekt, jag bokar onsdag 14–16. Återkommer när hyresgästen bekräftat tillträde.",
-    sentAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-  },
-];
-
-type StepState = "done" | "active" | "pending";
-const BOOKING_STEPS: { label: string; state: StepState; sub?: string }[] = [
-  { label: "Ärende komplett", state: "done", sub: "Alla uppgifter inhämtade" },
-  { label: "Servicepersonal kontaktad", state: "done", sub: "Anders · Rörmokare" },
-  { label: "Tid bokad", state: "done", sub: "Anders · onsdag 14–16" },
-  { label: "Tillträde bekräftat", state: "active", sub: "Väntar på hyresgäst" },
-  { label: "Åtgärdat & avslutat", state: "pending" },
-];
 
 interface CaseDetail {
   id: string;
@@ -85,8 +53,6 @@ function senderMeta(sender: Sender, senderName?: string) {
       return { label: "Bo (AI)", side: "right" as const, bubble: "bg-[#1a6ba8] text-white", meta: "text-blue-200" };
     case "handler":
       return { label: senderName ?? "Handläggare", side: "right" as const, bubble: "bg-[#1a6ba8] text-white", meta: "text-blue-200" };
-    case "contractor":
-      return { label: senderName ?? "Servicepersonal", side: "left" as const, bubble: "bg-amber-50 text-gray-800 border border-amber-200", meta: "text-amber-700" };
   }
 }
 
@@ -106,7 +72,6 @@ export default function CaseDetailPage() {
   const [sending, setSending] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"resident" | "contractor">("resident");
 
   const [forwardOpen, setForwardOpen] = useState(false);
   const [forwardSummary, setForwardSummary] = useState("");
@@ -148,12 +113,11 @@ export default function CaseDetailPage() {
       .catch(() => setSignature(""));
   }, []);
 
-  const isBooked = stages[caseId] === "booked";
   const isReallyClosed =
     closedIds.has(caseId) ||
     caseData?.status === "CLOSED" ||
     caseData?.status === "ARCHIVED";
-  const isClosed = isReallyClosed || isBooked;
+  const isClosed = isReallyClosed;
   const isManual =
     !isClosed && (manualIds.has(caseId) || caseData?.status === "ESCALATED");
 
@@ -183,8 +147,6 @@ export default function CaseDetailPage() {
   if (!caseData) {
     return <div className="py-20 text-center text-gray-500">Ärendet hittades inte.</div>;
   }
-
-  const activeMessages = activeTab === "resident" ? residentMessages : CONTRACTOR_THREAD;
 
   async function openForward() {
     if (!caseData || !selectedRouting) return;
@@ -315,33 +277,9 @@ export default function CaseDetailPage() {
               <StatusBadge status={caseData.status} />
             </div>
 
-            {/* Tabs – underline style */}
-            <div className="mb-4 flex gap-1 border-b border-gray-200">
-              {([
-                { key: "resident", label: "Hyresgäst" },
-                { key: "contractor", label: "Servicepersonal" },
-              ] as const).map((t) => {
-                const active = activeTab === t.key;
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setActiveTab(t.key)}
-                    className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
-                      active
-                        ? "border-[#1a6ba8] text-[#1a6ba8]"
-                        : "border-transparent text-gray-500 hover:text-gray-800"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
+            <ThreadView messages={residentMessages} />
 
-            <ThreadView messages={activeMessages} />
-
-            {activeTab === "resident" && isManual && !isClosed && (
+            {isManual && !isClosed && (
               <form onSubmit={sendReply} className="mt-6 border-t border-gray-100 pt-4">
                 <label htmlFor="reply" className="mb-2 block text-sm font-medium text-gray-700">
                   Svara på ärendet
@@ -376,79 +314,17 @@ export default function CaseDetailPage() {
               </form>
             )}
 
-            {activeTab === "resident" && !isManual && !isClosed && (
+            {!isManual && !isClosed && (
               <div className="mt-6 rounded-md border border-[#1a6ba8]/20 bg-[#1a6ba8]/5 px-4 py-3 text-sm text-[#1a6ba8]">
                 Bo jobbar med detta ärende. Markera det som manuellt fall om du vill ta över.
               </div>
             )}
 
-            {activeTab === "contractor" && (
-              <div className="mt-6 border-t border-gray-100 pt-4">
-                <p className="mb-3 text-xs text-gray-500">
-                  Åtgärder mot servicepersonal
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f]"
-                  >
-                    Kontakta servicepersonal
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                  >
-                    Bekräfta tid
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* ===== SIDOPANEL ===== */}
         <div className="space-y-4">
-          {/* Bokningsstatus – only when isBooked */}
-          {isBooked && (
-            <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
-              <h2 className="mb-3 text-sm font-medium text-gray-700">Bokningsstatus</h2>
-              <ol className="relative space-y-3">
-                {BOOKING_STEPS.map((step, i) => {
-                  const isLast = i === BOOKING_STEPS.length - 1;
-                  const circle =
-                    step.state === "done"
-                      ? "bg-emerald-500 text-white border-emerald-500"
-                      : step.state === "active"
-                      ? "bg-[#1a6ba8] text-white border-[#1a6ba8] ring-4 ring-[#1a6ba8]/20"
-                      : "bg-white text-gray-400 border-gray-300";
-                  const labelClass =
-                    step.state === "pending"
-                      ? "text-gray-400"
-                      : step.state === "active"
-                      ? "text-[#1a6ba8] font-medium"
-                      : "text-gray-800 font-medium";
-                  return (
-                    <li key={step.label} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs ${circle}`}>
-                          {step.state === "done" ? "✓" : i + 1}
-                        </div>
-                        {!isLast && (
-                          <div className={`mt-1 w-px flex-1 ${step.state === "done" ? "bg-emerald-300" : "bg-gray-200"}`} />
-                        )}
-                      </div>
-                      <div className="pb-2">
-                        <p className={`text-sm ${labelClass}`}>{step.label}</p>
-                        {step.sub && step.state !== "pending" && (
-                          <p className="mt-0.5 text-xs text-gray-500">{step.sub}</p>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
-          )}
 
 
           {/* Manuellt fall – when not already manual */}
@@ -503,14 +379,6 @@ export default function CaseDetailPage() {
                     <dt className="text-gray-500">Skapat</dt>
                     <dd className="font-medium text-gray-900">
                       {new Date(caseData.createdAt).toLocaleDateString("sv-SE")}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="text-gray-500">Tillträde</dt>
-                    <dd>
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                        Ej bekräftat
-                      </span>
                     </dd>
                   </div>
                 </dl>
@@ -582,7 +450,7 @@ export default function CaseDetailPage() {
                 Öppna ärende igen
               </button>
             </div>
-          ) : (isManual || isBooked) ? (
+          ) : isManual ? (
             <div className="pt-1">
               <button
                 type="button"
