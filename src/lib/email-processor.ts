@@ -37,20 +37,36 @@ export async function processInboundEmail(email: InboundEmail): Promise<void> {
     return;
   }
 
-  // Matcha mot befintligt ärende via thread-ID eller e-post-ID
-  let existingCase = email.inReplyTo
-    ? await prisma.case.findFirst({
+  // Matcha mot befintligt ärende via In-Reply-To-headern.
+  // emailId kan lagras med eller utan vinkelparenteser beroende på provider —
+  // testa båda varianterna för att täcka äldre poster.
+  let existingCase: (typeof await prisma.case.findFirst({
+    where: { companyId: company.id },
+    include: {
+      messages: { orderBy: { sentAt: "asc" } },
+      fieldValues: { include: { field: true } },
+      category: { include: { fields: { orderBy: { order: "asc" } } } },
+    },
+  })) | null = null;
+
+  if (email.inReplyTo) {
+    const stripped = email.inReplyTo.replace(/^<|>$/g, "");
+    const candidates = [`<${stripped}>`, stripped];
+    for (const candidate of candidates) {
+      existingCase = await prisma.case.findFirst({
         where: {
           companyId: company.id,
-          messages: { some: { emailId: email.inReplyTo } },
+          messages: { some: { emailId: candidate } },
         },
         include: {
           messages: { orderBy: { sentAt: "asc" } },
           fieldValues: { include: { field: true } },
           category: { include: { fields: { orderBy: { order: "asc" } } } },
         },
-      })
-    : null;
+      });
+      if (existingCase) break;
+    }
+  }
 
   // Ignorera mail på avslutade ärenden
   if (

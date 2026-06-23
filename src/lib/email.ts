@@ -120,7 +120,30 @@ async function sendViaGmail(params: SendEmailParams): Promise<string> {
     .replace(/=+$/, "");
 
   const result = await gmail.users.messages.send({ userId: "me", requestBody: { raw } });
-  return result.data.id ?? "";
+  const gmailId = result.data.id ?? "";
+
+  // Hämta det faktiska RFC 2822 Message-ID-fältet från den skickade mejlet.
+  // Gmail returnerar sitt interna ID i result.data.id (t.ex. "18f8a3b2c4d5"),
+  // men e-postklienter sätter In-Reply-To till RFC-headern (t.ex. <abc@gmail.com>).
+  // Utan det här steget matchar aldrig hyresgästens svar mot befintligt ärende.
+  if (gmailId) {
+    try {
+      const msg = await gmail.users.messages.get({
+        userId: "me",
+        id: gmailId,
+        format: "metadata",
+        metadataHeaders: ["Message-ID"],
+      });
+      const rfcId = msg.data.payload?.headers?.find(
+        (h) => h.name?.toLowerCase() === "message-id",
+      )?.value;
+      if (rfcId) return rfcId;
+    } catch {
+      // Fallback till Gmails interna ID om hämtning misslyckas
+    }
+  }
+
+  return gmailId;
 }
 
 // ─── Microsoft / Outlook ──────────────────────────────────────────────────
