@@ -40,32 +40,27 @@ export async function processInboundEmail(email: InboundEmail): Promise<void> {
   // Matcha mot befintligt ärende via In-Reply-To-headern.
   // emailId kan lagras med eller utan vinkelparenteser beroende på provider —
   // testa båda varianterna för att täcka äldre poster.
-  let existingCase: (typeof await prisma.case.findFirst({
-    where: { companyId: company.id },
-    include: {
-      messages: { orderBy: { sentAt: "asc" } },
-      fieldValues: { include: { field: true } },
-      category: { include: { fields: { orderBy: { order: "asc" } } } },
-    },
-  })) | null = null;
+  const caseInclude = {
+    messages: { orderBy: { sentAt: "asc" as const } },
+    fieldValues: { include: { field: true } },
+    category: { include: { fields: { orderBy: { order: "asc" as const } } } },
+  };
+
+  const findCaseByEmailId = (emailId: string) =>
+    prisma.case.findFirst({
+      where: { companyId: company.id, messages: { some: { emailId } } },
+      include: caseInclude,
+    });
+
+  type FoundCase = Awaited<ReturnType<typeof findCaseByEmailId>>;
+
+  let existingCase: FoundCase = null;
 
   if (email.inReplyTo) {
     const stripped = email.inReplyTo.replace(/^<|>$/g, "");
-    const candidates = [`<${stripped}>`, stripped];
-    for (const candidate of candidates) {
-      existingCase = await prisma.case.findFirst({
-        where: {
-          companyId: company.id,
-          messages: { some: { emailId: candidate } },
-        },
-        include: {
-          messages: { orderBy: { sentAt: "asc" } },
-          fieldValues: { include: { field: true } },
-          category: { include: { fields: { orderBy: { order: "asc" } } } },
-        },
-      });
-      if (existingCase) break;
-    }
+    existingCase =
+      (await findCaseByEmailId(`<${stripped}>`)) ??
+      (await findCaseByEmailId(stripped));
   }
 
   // Ignorera mail på avslutade ärenden
