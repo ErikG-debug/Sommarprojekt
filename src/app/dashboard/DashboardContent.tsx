@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CaseRow } from "@/components/cases/CaseRow";
 import { ReviewDeck, type ReviewCase } from "@/components/cases/ReviewDeck";
-import { BookingGate, type BookingCase } from "@/components/cases/BookingGate";
 import { ThermalStripe } from "@/components/ui/ThermalStripe";
 import { useClosedCases, closeCase } from "@/lib/closedCases";
 import { useManualCases, useUrgencyOverrides, markManual } from "@/lib/caseOverrides";
@@ -13,7 +12,7 @@ import { useCaseStages, setCaseStage } from "@/lib/caseStages";
 import type { Urgency } from "@/lib/types";
 import type { CaseStatus } from "@prisma/client";
 
-type FilterValue = "BO_HANDLES" | "READY" | "BOOKED" | "MANUAL" | "CLOSED" | "ALL";
+type FilterValue = "ALL" | "READY" | "MANUAL" | "CLOSED";
 type SortValue = "date_desc" | "date_asc" | "prio_desc" | "prio_asc";
 
 const SORT_OPTIONS: { value: SortValue; label: string }[] = [
@@ -26,35 +25,28 @@ const SORT_OPTIONS: { value: SortValue; label: string }[] = [
 const URGENCY_RANK: Record<Urgency, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
 
 const TABS: { label: string; value: FilterValue }[] = [
-  { label: "Bo hanterar",           value: "BO_HANDLES" },
-  { label: "Manuella fall",         value: "MANUAL" },
-  { label: "Redo för godkännande",  value: "READY" },
-  { label: "Bokat",                 value: "BOOKED" },
-  { label: "Avslutade",             value: "CLOSED" },
   { label: "Alla",                  value: "ALL" },
+  { label: "Redo för godkännande", value: "READY" },
+  { label: "Manuella fall",        value: "MANUAL" },
+  { label: "Avslutade",            value: "CLOSED" },
 ];
 
 const FILTER_MAP: Record<string, FilterValue> = {
-  bo_hanterar: "BO_HANDLES",
-  redo:        "READY",
-  bokat:       "BOOKED",
-  manuella:    "MANUAL",
-  avslutade:   "CLOSED",
-  alla:        "ALL",
-  READY:       "READY",
-  BOOKED:      "BOOKED",
-  MANUAL:      "MANUAL",
-  CLOSED:      "CLOSED",
-  ALL:         "ALL",
+  alla:     "ALL",
+  redo:     "READY",
+  manuella: "MANUAL",
+  avslutade: "CLOSED",
+  ALL:      "ALL",
+  READY:    "READY",
+  MANUAL:   "MANUAL",
+  CLOSED:   "CLOSED",
 };
 
 const FILTER_SLUG: Record<FilterValue, string> = {
-  BO_HANDLES: "bo_hanterar",
-  READY:      "redo",
-  BOOKED:     "bokat",
-  MANUAL:     "manuella",
-  CLOSED:     "avslutade",
-  ALL:        "alla",
+  ALL:    "alla",
+  READY:  "redo",
+  MANUAL: "manuella",
+  CLOSED: "avslutade",
 };
 
 interface RawCase {
@@ -72,8 +64,8 @@ interface RawCase {
 
 export function DashboardContent() {
   const searchParams = useSearchParams();
-  const rawFilter = searchParams.get("filter") ?? "bo_hanterar";
-  const activeFilter: FilterValue = FILTER_MAP[rawFilter] ?? "BO_HANDLES";
+  const rawFilter = searchParams.get("filter") ?? "alla";
+  const activeFilter: FilterValue = FILTER_MAP[rawFilter] ?? "ALL";
 
   const [rawCases, setRawCases] = useState<RawCase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,8 +90,6 @@ export function DashboardContent() {
     isClosed: boolean;
     isManual: boolean;
     isReady: boolean;
-    isBooked: boolean;
-    isTimeLocked: boolean;
   };
 
   const cases: Enriched[] = useMemo(
@@ -108,33 +98,28 @@ export function DashboardContent() {
         const isClosed =
           closedIds.has(c.id) || c.status === "CLOSED" || c.status === "ARCHIVED";
         const stage = stages[c.id];
-        const isBooked = !isClosed && (stage === "booked" || stage === "time_locked");
-        const isTimeLocked = !isClosed && stage === "time_locked";
         const isManual =
-          !isClosed && !isBooked && (manualIds.has(c.id) || c.status === "ESCALATED");
+          !isClosed && (manualIds.has(c.id) || c.status === "ESCALATED");
         const isReady =
           !isClosed &&
-          !isBooked &&
           !isManual &&
           (stage === "ready_for_approval" || c.status === "READY_FOR_REVIEW");
         const urgency: Urgency = urgencyOverrides[c.id] ?? "LOW";
-        return { ...c, urgency, isClosed, isManual, isReady, isBooked, isTimeLocked };
+        return { ...c, urgency, isClosed, isManual, isReady };
       }),
     [rawCases, closedIds, manualIds, urgencyOverrides, stages],
   );
 
   function matches(c: Enriched, f: FilterValue) {
     switch (f) {
-      case "BO_HANDLES": return !c.isClosed && !c.isManual && !c.isReady && !c.isBooked;
-      case "READY":      return c.isReady;
-      case "BOOKED":     return c.isBooked;
-      case "MANUAL":     return !c.isClosed && c.isManual;
-      case "CLOSED":     return c.isClosed;
-      case "ALL":        return !c.isClosed;
+      case "ALL":    return !c.isClosed;
+      case "READY":  return c.isReady;
+      case "MANUAL": return !c.isClosed && c.isManual;
+      case "CLOSED": return c.isClosed;
     }
   }
 
-  const sortable = activeFilter === "MANUAL" || activeFilter === "ALL";
+  const sortable = activeFilter === "ALL" || activeFilter === "MANUAL";
 
   let filteredCases = cases.filter((c) => matches(c, activeFilter));
   if (sortable) {
@@ -152,11 +137,11 @@ export function DashboardContent() {
     return cases.filter((c) => matches(c, f)).length;
   }
 
-  function tagFor(c: Enriched): "bo" | "manual" | "closed" | "booked" | null {
-    if (c.isClosed) return activeFilter === "ALL" || activeFilter === "CLOSED" ? "closed" : null;
-    if (c.isBooked) return "booked";
+  function tagFor(c: Enriched): "manual" | "closed" | "ready" | null {
+    if (c.isClosed) return activeFilter === "CLOSED" ? "closed" : null;
     if (c.isManual) return "manual";
-    return "bo";
+    if (c.isReady) return "ready";
+    return null;
   }
 
   const reviewCases: ReviewCase[] = useMemo(
@@ -178,36 +163,26 @@ export function DashboardContent() {
     [cases],
   );
 
-  const toBookingCase = (c: Enriched): BookingCase => ({
-    id: c.id,
-    subject: c.subject,
-    residentEmail: c.residentEmail,
-    residentName: c.residentName,
-    urgency: c.urgency,
-    category: c.category,
-    property: c.property,
-    reportedAt: c.updatedAt,
-  });
+  const handleApprove = (id: string) => {
+    // Teknikern godkänd — sätt stage och uppdatera status till IN_PROGRESS
+    setCaseStage(id, null);
+    fetch(`/api/cases/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "IN_PROGRESS" }),
+    }).catch(() => null);
+    setRawCases((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: "IN_PROGRESS" as CaseStatus } : c))
+    );
+  };
 
-  const pendingBookings = useMemo(
-    () => cases.filter((c) => c.isBooked && !c.isTimeLocked).map(toBookingCase),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cases],
-  );
-  const lockedBookings = useMemo(
-    () => cases.filter((c) => c.isTimeLocked).map(toBookingCase),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cases],
-  );
-
-  const handleApprove = (id: string) => setCaseStage(id, "booked");
   const handleManual = (id: string) => {
     setCaseStage(id, null);
     markManual(id);
   };
-  const handleMarkDone = (id: string) => {
+
+  const handleClose = (id: string) => {
     closeCase(id);
-    setCaseStage(id, null);
     fetch(`/api/cases/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -268,12 +243,6 @@ export function DashboardContent() {
         <div className="py-20 text-center text-gray-400">Laddar ärenden…</div>
       ) : activeFilter === "READY" ? (
         <ReviewDeck cases={reviewCases} onApprove={handleApprove} onManual={handleManual} />
-      ) : activeFilter === "BOOKED" ? (
-        <BookingGate
-          pendingCases={pendingBookings}
-          lockedCases={lockedBookings}
-          onMarkDone={handleMarkDone}
-        />
       ) : filteredCases.length === 0 ? (
         <div className="py-20 text-center text-gray-500">Inga ärenden att visa</div>
       ) : (

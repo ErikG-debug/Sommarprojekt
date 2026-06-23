@@ -5,15 +5,14 @@ import { UrgencyBadge } from "@/components/ui/UrgencyBadge";
 import { ThermalStripe } from "@/components/ui/ThermalStripe";
 import type { Urgency } from "@/lib/types";
 
-type TagKind = "bo" | "manual" | "closed" | "booked" | null;
+type TagKind = "manual" | "closed" | "ready" | null;
 
 function Tag({ kind }: { kind: TagKind }) {
   if (!kind) return <span className="invisible rounded-full px-2.5 py-1 text-xs font-semibold">Platshållare</span>;
   const styles: Record<Exclude<TagKind, null>, { label: string; cls: string }> = {
-    bo: { label: "Bo jobbar", cls: "bg-[#1a6ba8]/10 text-[#1a6ba8]" },
+    ready:  { label: "Inväntar godkännande", cls: "bg-blue-50 text-blue-700" },
     manual: { label: "Manuellt fall", cls: "bg-amber-100 text-amber-800" },
     closed: { label: "Avslutat", cls: "bg-gray-100 text-gray-600" },
-    booked: { label: "Bokat", cls: "bg-emerald-100 text-emerald-800" },
   };
   const { label, cls } = styles[kind];
   return (
