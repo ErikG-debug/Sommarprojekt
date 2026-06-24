@@ -261,9 +261,10 @@ export function DashboardContent() {
             <CaseRow
               key={c.id}
               id={c.id}
-              subject={c.subject}
               residentEmail={c.residentEmail}
               residentName={c.residentName}
+              property={c.property}
+              category={c.category}
               tag={tagFor(c)}
               fromFilter={FILTER_SLUG[activeFilter]}
             />

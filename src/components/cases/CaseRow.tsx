@@ -23,14 +23,18 @@ function Tag({ kind }: { kind: TagKind }) {
 
 interface CaseRowProps {
   id: string;
-  subject: string;
   residentEmail: string;
   residentName: string | null;
+  property: { name: string } | null;
+  category: { name: string } | null;
   tag?: TagKind;
   fromFilter?: string;
 }
 
-export function CaseRow({ id, subject, residentEmail, residentName, tag = null, fromFilter }: CaseRowProps) {
+export function CaseRow({ id, residentEmail, residentName, property, category, tag = null, fromFilter }: CaseRowProps) {
+  const displayName = residentName ?? residentEmail;
+  const title = property ? `${property.name} — ${displayName}` : displayName;
+
   return (
     <Link
       href={`/dashboard/cases/${id}`}
@@ -44,12 +48,9 @@ export function CaseRow({ id, subject, residentEmail, residentName, tag = null, 
       <div className="group relative flex items-center gap-4 px-5 py-4 transition hover:bg-[#1a6ba8]/[0.03]">
         <span className="pointer-events-none absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full bg-[#1a6ba8] opacity-0 -translate-x-0.5 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-gray-900">{subject}</p>
-          <p className="mt-0.5 truncate text-sm text-gray-500">
-            {residentName ?? residentEmail}
-            {residentName && (
-              <span className="ml-1 text-gray-400">· {residentEmail}</span>
-            )}
+          <p className="truncate font-medium text-gray-900">{title}</p>
+          <p className="mt-0.5 truncate text-sm text-gray-400">
+            {category?.name ?? "—"}
           </p>
         </div>
         {tag && (
