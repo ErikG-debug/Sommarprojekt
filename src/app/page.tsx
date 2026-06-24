@@ -52,53 +52,6 @@ export default function HomePage() {
         </Link>
       </section>
 
-      {/* Vad är BoDesk */}
-      <section className="border-t border-gray-100 px-6 py-16">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="mb-4 text-2xl font-semibold text-gray-900">Vad är BoDesk?</h2>
-          <p className="text-gray-600 leading-relaxed">
-            BoDesk är en webbapp för fastighetsbolag och fastighetsförvaltare.
-            Tjänsten hjälper personal att hantera inkommande ärenden från hyresgäster
-            via e-post och dashboard. BoDesk används av fastighetspersonal — inte av
-            hyresgäster direkt.
-          </p>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t border-gray-100 bg-gray-50 px-6 py-16">
-        <div className="mx-auto max-w-5xl">
-          <h2 className="mb-10 text-center text-2xl font-semibold text-gray-900">
-            Hur det fungerar
-          </h2>
-          <div className="grid gap-8 sm:grid-cols-3">
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <div className="mb-3 text-2xl">📬</div>
-              <h3 className="mb-2 font-semibold text-gray-900">Inkommande mail</h3>
-              <p className="text-sm text-gray-500">
-                Hyresgästen skickar felanmälan till er befintliga e-postadress.
-                BoDesk tar emot den automatiskt.
-              </p>
-            </div>
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <div className="mb-3 text-2xl">🤖</div>
-              <h3 className="mb-2 font-semibold text-gray-900">Bo hanterar dialogen</h3>
-              <p className="text-sm text-gray-500">
-                Bo klassificerar ärendet, ställer följdfrågor och samlar
-                in all information som handläggaren behöver.
-              </p>
-            </div>
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <div className="mb-3 text-2xl">✅</div>
-              <h3 className="mb-2 font-semibold text-gray-900">Handläggaren tar över</h3>
-              <p className="text-sm text-gray-500">
-                När ärendet är komplett hamnar det i dashboarden för granskning
-                och åtgärd av er personal.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Google-data */}
       <section className="border-t border-gray-100 px-6 py-16">
