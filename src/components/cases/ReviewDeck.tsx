@@ -281,7 +281,7 @@ export function ReviewDeck({ cases, onApprove, onManual }: Props) {
             <button
               type="button"
               onClick={handleManual}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-[0.98]"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 py-3 text-sm font-bold text-orange-400 transition hover:bg-orange-50 active:scale-[0.98]"
             >
               <AlertTriangle className="h-4 w-4" />
               MANUELLT

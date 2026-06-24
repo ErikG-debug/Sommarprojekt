@@ -71,11 +71,6 @@ export default function CaseDetailPage() {
   const [signature, setSignature] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
 
-  const [forwardOpen, setForwardOpen] = useState(false);
-  const [forwardSummary, setForwardSummary] = useState("");
-  const [forwardLoading, setForwardLoading] = useState(false);
-  const [forwardError, setForwardError] = useState<string | null>(null);
-  const [forwardSent, setForwardSent] = useState(false);
 
   const routingCats = useRoutingCategories();
   const [selectedRoutingId, setSelectedRoutingId] = useState("");
@@ -218,62 +213,6 @@ export default function CaseDetailPage() {
     }
   }
 
-  async function openForward() {
-    if (!caseData || !selectedRouting) return;
-    setForwardOpen(true);
-    setForwardSent(false);
-    setForwardSummary("");
-    setForwardError(null);
-    setForwardLoading(true);
-    try {
-      const res = await fetch("/api/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: caseData.subject,
-          residentName: caseData.residentName,
-          residentEmail: caseData.residentEmail,
-          category: selectedRouting.name,
-          messages: caseData.messages,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) setForwardError(data.error);
-      setForwardSummary(data.summary ?? "");
-    } catch (e) {
-      setForwardError(e instanceof Error ? e.message : "Okänt fel");
-    } finally {
-      setForwardLoading(false);
-    }
-  }
-
-  async function confirmForward() {
-    if (!selectedRouting) return;
-    setForwardLoading(true);
-    setForwardError(null);
-    try {
-      const res = await fetch(`/api/cases/${caseId}/forward`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: selectedRouting.email,
-          subject: `Ärende vidarebefordrat: ${caseData?.subject ?? ""}`,
-          message: forwardSummary,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setForwardError(data.error ?? "Kunde inte skicka vidare.");
-        return;
-      }
-      setForwardSent(true);
-      setTimeout(() => setForwardOpen(false), 1500);
-    } catch (err) {
-      setForwardError(err instanceof Error ? err.message : "Okänt fel");
-    } finally {
-      setForwardLoading(false);
-    }
-  }
 
   async function handleClose() {
     closeCase(caseId);
@@ -515,42 +454,6 @@ export default function CaseDetailPage() {
             )}
           </div>
 
-          {/* Skicka vidare – only when manual */}
-          {!isClosed && isManual && (
-            <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_6px_16px_rgba(0,0,0,0.05)]">
-              <h2 className="mb-1 text-sm font-medium text-gray-700">Skicka vidare</h2>
-              <p className="mb-3 text-xs text-gray-400">
-                Välj kategori — mottagaradressen hämtas automatiskt från inställningarna.
-              </p>
-              <label htmlFor="routing-cat" className="sr-only">Kategori</label>
-              <select
-                id="routing-cat"
-                value={selectedRoutingId}
-                onChange={(e) => setSelectedRoutingId(e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a6ba8] focus:ring-2 focus:ring-[#1a6ba8]/20"
-              >
-                {routingCats.length === 0 && (
-                  <option value="">Inga kategorier — lägg till i Inställningar</option>
-                )}
-                {routingCats.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              {selectedRouting && (
-                <p className="mt-2 text-xs text-gray-500">
-                  Skickas till <span className="font-medium text-gray-800">{selectedRouting.email}</span>
-                </p>
-              )}
-              <button
-                type="button"
-                disabled={!selectedRouting}
-                onClick={openForward}
-                className="mt-3 w-full rounded-md bg-[#1a6ba8] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#155a8f] disabled:opacity-40"
-              >
-                Skicka vidare ärende
-              </button>
-            </div>
-          )}
 
           {/* Öppna/Avsluta */}
           {isReallyClosed ? (
@@ -568,7 +471,7 @@ export default function CaseDetailPage() {
               <button
                 type="button"
                 onClick={handleClose}
-                className="text-sm font-medium text-[#1a6ba8] underline-offset-4 transition hover:text-[#155a8f] hover:underline"
+                className="text-sm font-medium text-red-500 underline-offset-4 transition hover:text-red-700 hover:underline"
               >
                 Avsluta ärende
               </button>
@@ -577,66 +480,6 @@ export default function CaseDetailPage() {
         </div>
       </div>
 
-      {/* ===== FORWARD MODAL ===== */}
-      {forwardOpen && selectedRouting && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => !forwardLoading && setForwardOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-gray-900">Skicka vidare ärende</h3>
-            <p className="mt-1 text-sm text-gray-500">Granska sammanfattningen innan ärendet skickas.</p>
-
-            <dl className="mt-4 space-y-1 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-gray-500">Kategori</dt>
-                <dd className="font-medium text-gray-900">{selectedRouting.name}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-gray-500">Skickas till</dt>
-                <dd className="font-medium text-gray-900">{selectedRouting.email}</dd>
-              </div>
-            </dl>
-
-            <div className="mt-4">
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">AI-sammanfattning</p>
-              <div className="min-h-32 whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
-                {forwardLoading && <span className="text-gray-400">Genererar sammanfattning…</span>}
-                {!forwardLoading && forwardError && <span className="text-red-500">{forwardError}</span>}
-                {!forwardLoading && !forwardError && forwardSummary}
-              </div>
-            </div>
-
-            {forwardSent ? (
-              <div className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                ✓ Skickat till {selectedRouting.email}
-              </div>
-            ) : (
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setForwardOpen(false)}
-                  disabled={forwardLoading}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                >
-                  Avbryt
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmForward}
-                  disabled={forwardLoading || !forwardSummary}
-                  className="rounded-md bg-[#1a6ba8] px-4 py-2 text-sm font-medium text-white hover:bg-[#155a8f] disabled:opacity-40"
-                >
-                  Godkänn & skicka
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
