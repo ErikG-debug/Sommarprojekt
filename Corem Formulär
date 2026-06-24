@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Registrera felanmälan</title>
+  <style>
+    :root {
+      --page-bg: #fff3ee;
+      --panel-bg: #ffffff;
+      --text: #24282d;
+      --muted: #68727d;
+      --border: #cfd8e3;
+      --border-soft: #f0f2f4;
+      --orange: #ff7826;
+      --green: #188353;
+      --field-success-bg: #eef0f2;
+      --dropdown-bg: #e7e5e5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page-bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.35;
+    }
+
+    .outer {
+      padding: 26px 42px 80px;
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      width: 100%;
+      min-height: calc(100vh - 52px);
+      padding: 126px 116px 120px;
+    }
+
+    .form-wrap {
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 66px;
+    }
+
+    h1 {
+      margin: 0 0 22px;
+      font-size: 43px;
+      line-height: 1.08;
+      font-weight: 700;
+      letter-spacing: -0.9px;
+    }
+
+    .intro {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.35;
+    }
+
+    .intro em {
+      font-style: italic;
+    }
+
+    .language-btn {
+      margin-top: 0;
+      border: 2px solid #33383f;
+      border-radius: 5px;
+      background: #fff;
+      color: var(--text);
+      padding: 10px 16px;
+      font-size: 23px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .language-btn svg {
+      width: 23px;
+      height: 23px;
+      flex: 0 0 auto;
+    }
+
+    .section {
+      border-top: 1px solid var(--border-soft);
+      padding-top: 30px;
+      margin-top: 0;
+    }
+
+    .section + .section {
+      margin-top: 84px;
+    }
+
+    h2 {
+      margin: 0 0 26px;
+      font-size: 34px;
+      line-height: 1.12;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .required-note {
+      margin: 0 0 61px;
+      font-size: 24px;
+      font-style: italic;
+    }
+
+    .field {
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    label,
+    .label {
+      display: block;
+      font-size: 24px;
+      line-height: 1.25;
+      margin-bottom: 12px;
+      font-weight: 400;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 24px;
+      outline: none;
+      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select {
+      height: 56px;
+      padding: 0 18px;
+    }
+
+    textarea {
+      min-height: 137px;
+      resize: vertical;
+      padding: 14px 18px;
+    }
+
+    input::placeholder {
+      color: #697482;
+      opacity: 1;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px rgba(255, 120, 38, 0.18);
+    }
+
+    .char-count {
+      color: var(--muted);
+      font-size: 24px;
+      margin-top: 2px;
+      min-height: 32px;
+    }
+
+    .checkbox-field {
+      margin-top: -2px;
+      margin-bottom: 28px;
+    }
+
+    .checkbox-field .label {
+      margin-bottom: 16px;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: #0078ff;
+      cursor: pointer;
+    }
+
+    .company-control {
+      position: relative;
+    }
+
+    .company-control.is-resident input {
+      border-color: var(--green);
+      border-width: 2px;
+      background: var(--field-success-bg);
+      padding-right: 70px;
+    }
+
+    .company-control .success-mark {
+      display: none;
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--green);
+      font-size: 43px;
+      line-height: 1;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .company-control.is-resident .success-mark {
+      display: block;
+    }
+
+    .file-picker {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 105px;
+      height: 59px;
+      padding: 0 20px;
+      border: 1.5px solid #fde0d5;
+      border-radius: 5px;
+      color: #f4ded6;
+      background: #fff;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .file-picker:hover {
+      border-color: #ffd1bf;
+      color: #edb4a0;
+    }
+
+    #files {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .file-name {
+      color: var(--muted);
+      font-size: 18px;
+      margin-top: 10px;
+    }
+
+    .contact-section {
+      padding-top: 33px;
+    }
+
+    .notice {
+      margin: 37px 0 37px;
+      max-width: 1700px;
+      font-size: 34px;
+      line-height: 1.32;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .submit-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--orange);
+      color: #fff;
+      font-family: inherit;
+      font-size: 32px;
+      line-height: 1;
+      padding: 22px 27px;
+      cursor: pointer;
+    }
+
+    .submit-btn:hover {
+      filter: brightness(0.98);
+    }
+
+    .submit-icon {
+      width: 34px;
+      height: 34px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .suggestions {
+      position: absolute;
+      z-index: 10;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      display: none;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .suggestions.is-open {
+      display: block;
+    }
+
+    .suggestion {
+      padding: 14px 18px;
+      font-size: 23px;
+      cursor: pointer;
+    }
+
+    .suggestion:hover,
+    .suggestion.is-active {
+      background: #f4f5f6;
+    }
+
+    .native-select-wrap {
+      position: relative;
+    }
+
+    .confirmation {
+      display: none;
+      margin-top: 28px;
+      padding: 18px 20px;
+      border: 1.5px solid var(--green);
+      color: var(--green);
+      border-radius: 5px;
+      font-size: 22px;
+      background: #f5fbf7;
+    }
+
+    .confirmation.is-visible {
+      display: block;
+    }
+
+    @media (max-width: 900px) {
+      .outer {
+        padding: 0;
+      }
+
+      .panel {
+        padding: 46px 22px 70px;
+        min-height: 100vh;
+      }
+
+      .header-row {
+        display: block;
+        margin-bottom: 46px;
+      }
+
+      .language-btn {
+        margin-top: 26px;
+        font-size: 18px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      h2 {
+        font-size: 28px;
+      }
+
+      .intro,
+      .required-note,
+      label,
+      .label,
+      input[type="text"],
+      input[type="email"],
+      input[type="tel"],
+      select,
+      textarea,
+      .char-count {
+        font-size: 20px;
+      }
+
+      .notice {
+        font-size: 25px;
+      }
+
+      .submit-btn {
+        font-size: 27px;
+        padding: 18px 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="outer">
+    <main class="panel">
+      <div class="form-wrap">
+        <div class="header-row">
+          <div>
+            <h1>Registrera felanmälan</h1>
+            <p class="intro">
+              Vid AKUT* service: välj adress och ring visat telefonnummer!<br>
+              <em>*Akut service innebär risk för skador på person eller fastighet/egendom.</em>
+            </p>
+          </div>
+
+          <button class="language-btn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M3 12h18"></path>
+              <path d="M12 3c2.35 2.35 3.5 5.35 3.5 9S14.35 18.65 12 21"></path>
+              <path d="M12 3C9.65 5.35 8.5 8.35 8.5 12s1.15 6.65 3.5 9"></path>
+            </svg>
+            English
+          </button>
+        </div>
+
+        <form id="serviceForm" autocomplete="off">
+          <section class="section">
+            <h2>Felbeskrivning</h2>
+            <p class="required-note">* = Obligatorisk uppgift</p>
+
+            <div class="field autocomplete-field">
+              <label for="address">Sök adress *</label>
+              <input id="address" name="address" type="text" placeholder="Skriv in en adress" required>
+              <div id="addressSuggestions" class="suggestions" role="listbox"></div>
+            </div>
+
+            <div class="field checkbox-field">
+              <span class="label">Bostadshyresgäst</span>
+              <input id="resident" name="resident" type="checkbox" aria-label="Bostadshyresgäst">
+            </div>
+
+            <div class="field">
+              <label for="company">Företag *</label>
+              <div id="companyControl" class="company-control">
+                <input id="company" name="company" type="text" required>
+                <span class="success-mark">✓</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="shortDescription">Kort beskrivning *</label>
+              <input id="shortDescription" name="shortDescription" type="text" maxlength="40" required>
+              <div id="shortCounter" class="char-count">av 40 tecken</div>
+            </div>
+
+            <div class="field">
+              <label for="longDescription">Utförlig beskrivning</label>
+              <textarea id="longDescription" name="longDescription" maxlength="5000"></textarea>
+              <div id="longCounter" class="char-count">av 5000 tecken</div>
+            </div>
+
+            <div class="field">
+              <label for="faultType">Typ av fel *</label>
+              <div class="native-select-wrap">
+                <select id="faultType" name="faultType" required>
+                  <option value="">Välj typ av fel</option>
+                  <option>El</option>
+                  <option>Hiss/Portar/Dörrar</option>
+                  <option>Mark/Tak/Fasad</option>
+                  <option>Vatten/Avlopp</option>
+                  <option>Vitvaror</option>
+                  <option>Värme/Kyla/Ventilation</option>
+                  <option>Övrigt</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="label">Bifoga filer</span>
+              <label class="file-picker" for="files">Välj fil</label>
+              <input id="files" name="files" type="file" multiple>
+              <div id="fileName" class="file-name"></div>
+            </div>
+          </section>
+
+          <section class="section contact-section">
+            <h2>Kontaktuppgifter</h2>
+
+            <div class="field">
+              <label for="firstName">Förnamn *</label>
+              <input id="firstName" name="firstName" type="text" required>
+            </div>
+
+            <div class="field">
+              <label for="lastName">Efternamn *</label>
+              <input id="lastName" name="lastName" type="text" required>
+            </div>
+
+            <div class="field">
+              <label for="phone">Telefonnummer (endast siffror) *</label>
+              <input id="phone" name="phone" type="tel" inputmode="numeric" pattern="[0-9 ]+" required>
+            </div>
+
+            <div class="field">
+              <label for="email">E-postadress *</label>
+              <input id="email" name="email" type="email" required>
+            </div>
+
+            <p class="notice">
+              När du registrerar din felanmälan kommer du få ett bekräftelsemejl samt fortlöpande mejl med uppdateringar för var din felanmälan är i processen till ovan angiven e-postadress.
+            </p>
+
+            <button class="submit-btn" type="submit">
+              <span class="submit-icon">✓</span>
+              Registrera
+            </button>
+
+            <div id="confirmation" class="confirmation">
+              Felanmälan är registrerad. I demo-läget skickas inget riktigt ärende.
+            </div>
+          </section>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_ENDPOINT = "";
+
+    const addresses = [
+      "Storgatan 47, Västerås",
+      "Björkvägen 12, Umeå",
+      "Solrosgatan 8, Linköping",
+      "Hamnvägen 31, Kalmar",
+      "Ängsvägen 19, Örebro"
+    ];
+
+    const addressInput = document.getElementById("address");
+    const addressSuggestions = document.getElementById("addressSuggestions");
+    const residentCheckbox = document.getElementById("resident");
+    const companyInput = document.getElementById("company");
+    const companyControl = document.getElementById("companyControl");
+    const shortDescription = document.getElementById("shortDescription");
+    const longDescription = document.getElementById("longDescription");
+    const shortCounter = document.getElementById("shortCounter");
+    const longCounter = document.getElementById("longCounter");
+    const filesInput = document.getElementById("files");
+    const fileName = document.getElementById("fileName");
+    const form = document.getElementById("serviceForm");
+    const confirmation = document.getElementById("confirmation");
+
+    function renderAddressSuggestions(items) {
+      addressSuggestions.innerHTML = "";
+
+      if (!items.length) {
+        addressSuggestions.classList.remove("is-open");
+        return;
+      }
+
+      items.forEach(address => {
+        const item = document.createElement("div");
+        item.className = "suggestion";
+        item.textContent = address;
+        item.setAttribute("role", "option");
+        item.addEventListener("mousedown", event => {
+          event.preventDefault();
+          addressInput.value = address;
+          addressSuggestions.classList.remove("is-open");
+        });
+        addressSuggestions.appendChild(item);
+      });
+
+      addressSuggestions.classList.add("is-open");
+    }
+
+    function filterAddresses() {
+      const query = addressInput.value.trim().toLowerCase();
+      const filtered = query
+        ? addresses.filter(address => address.toLowerCase().includes(query))
+        : addresses;
+
+      renderAddressSuggestions(filtered);
+    }
+
+    addressInput.addEventListener("focus", filterAddresses);
+    addressInput.addEventListener("input", filterAddresses);
+    addressInput.addEventListener("blur", () => {
+      setTimeout(() => addressSuggestions.classList.remove("is-open"), 120);
+    });
+
+    residentCheckbox.addEventListener("change", () => {
+      if (residentCheckbox.checked) {
+        companyInput.value = "Bostadshyresgäst";
+        companyInput.readOnly = true;
+        companyControl.classList.add("is-resident");
+      } else {
+        if (companyInput.value === "Bostadshyresgäst") {
+          companyInput.value = "";
+        }
+        companyInput.readOnly = false;
+        companyControl.classList.remove("is-resident");
+      }
+    });
+
+    function updateCounter(input, output, max) {
+      if (!input.value.length) {
+        output.textContent = `av ${max} tecken`;
+        return;
+      }
+      output.textContent = `${input.value.length} av ${max} tecken`;
+    }
+
+    shortDescription.addEventListener("input", () => updateCounter(shortDescription, shortCounter, 40));
+    longDescription.addEventListener("input", () => updateCounter(longDescription, longCounter, 5000));
+
+    filesInput.addEventListener("change", () => {
+      const files = Array.from(filesInput.files);
+      if (!files.length) {
+        fileName.textContent = "";
+        return;
+      }
+
+      fileName.textContent = files.length === 1
+        ? files[0].name
+        : `${files.length} filer valda`;
+    });
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
+      const payload = {
+        address: addressInput.value,
+        resident: residentCheckbox.checked,
+        company: companyInput.value,
+        shortDescription: shortDescription.value,
+        longDescription: longDescription.value,
+        faultType: document.getElementById("faultType").value,
+        firstName: document.getElementById("firstName").value,
+        lastName: document.getElementById("lastName").value,
+        phone: document.getElementById("phone").value,
+        email: document.getElementById("email").value,
+        files: Array.from(filesInput.files).map(file => file.name)
+      };
+
+      console.log("Felanmälan payload:", payload);
+
+      if (API_ENDPOINT) {
+        await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      confirmation.classList.add("is-visible");
+      confirmation.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  </script>
+</body>
+</html>
