@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { FieldValuesList } from "@/components/cases/FieldValuesList";
@@ -105,6 +105,12 @@ export default function CaseDetailPage() {
 
   // Reset confirm step when tab or reply changes
   useEffect(() => { setConfirmStep(false); }, [activeTab, reply]);
+
+  // Scrolla till senaste meddelandet när konversationen uppdateras
+  useEffect(() => {
+    const el = document.getElementById("thread-bottom");
+    el?.scrollIntoView({ behavior: "smooth" });
+  }, [residentMessages.length, activeTab]);
 
   const isReallyClosed =
     closedIds.has(caseId) ||
@@ -320,7 +326,7 @@ export default function CaseDetailPage() {
             </div>
 
             {/* Thread */}
-            <div className="px-6 pt-5">
+            <div className="px-6 pt-5 pb-2 max-h-[480px] overflow-y-auto scroll-smooth" id="thread-scroll">
               {activeTab === "resident" ? (
                 <ThreadView messages={residentMessages} />
               ) : (
@@ -328,6 +334,7 @@ export default function CaseDetailPage() {
                   Ingen konversation med servicepersonal ännu.
                 </p>
               )}
+              <div id="thread-bottom" />
             </div>
 
             {/* Reply form (always shown when not closed) */}
@@ -506,18 +513,41 @@ export default function CaseDetailPage() {
   );
 }
 
+function stripQuotes(body: string): string {
+  return body
+    .split("\n")
+    .reduce<{ lines: string[]; quoting: boolean }>((acc, line) => {
+      if (acc.quoting) return acc;
+      const trimmed = line.trimStart();
+      // Standardiserade citat-markörer i e-post
+      if (
+        trimmed.startsWith(">") ||
+        /^(-{3,}|_{3,})\s*(Original Message|Forwarded|Ursprungligt)/i.test(trimmed) ||
+        /^On .+wrote:/.test(trimmed) ||
+        /^Den .+skrev:/i.test(trimmed)
+      ) {
+        return { lines: acc.lines, quoting: true };
+      }
+      return { lines: [...acc.lines, line], quoting: false };
+    }, { lines: [], quoting: false })
+    .lines
+    .join("\n")
+    .trimEnd();
+}
+
 function ThreadView({ messages }: { messages: ThreadMessage[] }) {
   if (messages.length === 0) {
     return <p className="py-8 text-center text-sm text-gray-400">Inga meddelanden ännu.</p>;
   }
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 pb-2">
       {messages.map((msg) => {
         const m = senderMeta(msg.sender, msg.senderName);
+        const body = stripQuotes(msg.body);
         return (
           <div key={msg.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
             <div className={`max-w-[80%] rounded-lg px-4 py-3 text-sm ${m.bubble}`}>
-              <p className="whitespace-pre-wrap">{msg.body}</p>
+              <p className="whitespace-pre-wrap">{body}</p>
               <p className={`mt-1.5 text-right text-xs ${m.meta}`}>
                 {m.label} ·{" "}
                 {new Date(msg.sentAt).toLocaleString("sv-SE", {
