@@ -13,7 +13,6 @@ import {
   Send,
 } from "lucide-react";
 import { useContractors } from "@/lib/contractors";
-import { useCaseAssignees, setCaseAssignee } from "@/lib/caseAssignees";
 import type { Urgency } from "@/lib/types";
 
 export interface ReviewCase {
@@ -46,7 +45,7 @@ export function ReviewDeck({ cases, onApprove, onManual }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const contractors = useContractors();
-  const assignees = useCaseAssignees();
+  const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
 
   const total = cases.length;
   const safeIndex = total === 0 ? 0 : Math.min(index, total - 1);
@@ -80,9 +79,8 @@ export function ReviewDeck({ cases, onApprove, onManual }: Props) {
 
   const currentContractor = useMemo(() => {
     if (!current || contractors.length === 0) return null;
-    const explicitId = assignees[current.id];
-    if (explicitId) {
-      const found = contractors.find((c) => c.id === explicitId);
+    if (selectedContractorId) {
+      const found = contractors.find((c) => c.id === selectedContractorId);
       if (found) return found;
     }
     const lower = current.assignee?.toLowerCase() ?? "";
@@ -90,7 +88,7 @@ export function ReviewDeck({ cases, onApprove, onManual }: Props) {
       (c) => lower.includes(c.name.toLowerCase()) || lower.includes(c.role.toLowerCase()),
     );
     return fuzzy ?? contractors[0];
-  }, [contractors, assignees, current]);
+  }, [contractors, selectedContractorId, current]);
 
   if (total === 0) {
     return (
@@ -234,7 +232,7 @@ export function ReviewDeck({ cases, onApprove, onManual }: Props) {
                               type="button"
                               key={c.id}
                               onClick={() => {
-                                if (current) setCaseAssignee(current.id, c.id);
+                                setSelectedContractorId(c.id);
                                 setPickerOpen(false);
                               }}
                               className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition hover:bg-[#1a6ba8]/5 ${active ? "bg-[#1a6ba8]/5" : ""}`}

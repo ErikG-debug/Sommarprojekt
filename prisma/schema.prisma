@@ -139,13 +139,14 @@ model Case {
 }
 
 model Message {
-  id          String   @id @default(cuid())
-  caseId      String
-  case        Case     @relation(fields: [caseId], references: [id])
-  fromResident Boolean  // true = från hyresgäst, false = från AI/handläggare
-  body        String
-  emailId     String?  // externt mail-ID
-  sentAt      DateTime @default(now())
+  id           String   @id @default(cuid())
+  caseId       String
+  case         Case     @relation(fields: [caseId], references: [id])
+  fromResident Boolean
+  sentByAI     Boolean  @default(true)
+  body         String
+  emailId      String?
+  sentAt       DateTime @default(now())
 }
 
 // Insamlade fältvärden per ärende

@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { FieldValuesList } from "@/components/cases/FieldValuesList";
-import { closeCase, reopenCase, useClosedCases } from "@/lib/closedCases";
-import { markManual, unmarkManual, useManualCases } from "@/lib/caseOverrides";
-import { useCaseStages, setCaseStage } from "@/lib/caseStages";
 import { useContractors } from "@/lib/contractors";
 import type { CaseStatus } from "@prisma/client";
 
@@ -37,7 +35,7 @@ interface CaseDetail {
   } | null;
   property: { name: string } | null;
   fieldValues: { field: { key: string; label: string }; value: string }[];
-  messages: { id: string; fromResident: boolean; body: string; sentAt: string }[];
+  messages: { id: string; fromResident: boolean; sentByAI: boolean; body: string; sentAt: string }[];
 }
 
 function senderMeta(sender: Sender, senderName?: string) {
@@ -64,9 +62,8 @@ export default function CaseDetailPage() {
       : "alla",
   );
 
-  const closedIds = useClosedCases();
-  const manualIds = useManualCases();
-  const stages = useCaseStages();
+  const { data: session } = useSession();
+  const handlerName = session?.user?.name ?? "Handläggare";
 
   const [activeTab, setActiveTab] = useState<"resident" | "contractor">("resident");
   const [reply, setReply] = useState("");
@@ -115,31 +112,21 @@ export default function CaseDetailPage() {
   // Reset confirm step when tab or reply changes
   useEffect(() => { setConfirmStep(false); }, [activeTab, reply]);
 
-  const isReallyClosed =
-    closedIds.has(caseId) ||
-    caseData?.status === "CLOSED" ||
-    caseData?.status === "ARCHIVED";
-  const isClosed = isReallyClosed;
-  const isManual = !isClosed && (manualIds.has(caseId) || caseData?.status === "ESCALATED");
+  const isClosed = caseData?.status === "CLOSED" || caseData?.status === "ARCHIVED";
+  const isManual = !isClosed && caseData?.status === "ESCALATED";
 
   const residentMessages: ThreadMessage[] = useMemo(
     () =>
-      (caseData?.messages ?? []).map((m, i) => ({
+      (caseData?.messages ?? []).map((m) => ({
         id: m.id,
-        sender: m.fromResident
-          ? "resident"
-          : i === (caseData?.messages.length ?? 0) - 1
-          ? "handler"
-          : "bo",
+        sender: m.fromResident ? "resident" : m.sentByAI ? "bo" : "handler",
         senderName: m.fromResident
           ? (caseData?.residentName ?? "Hyresgäst")
-          : i === (caseData?.messages.length ?? 0) - 1
-          ? "Karin"
-          : undefined,
+          : !m.sentByAI ? handlerName : undefined,
         body: m.body,
         sentAt: m.sentAt,
       })),
-    [caseData],
+    [caseData, handlerName],
   );
 
   // Scrolla till senaste meddelandet när konversationen uppdateras
@@ -151,13 +138,11 @@ export default function CaseDetailPage() {
   if (loading) return <div className="py-20 text-center text-gray-400">Laddar ärende…</div>;
   if (!caseData) return <div className="py-20 text-center text-gray-500">Ärendet hittades inte.</div>;
 
-  // Promote to manual if needed, then send reply to resident
   async function sendResidentReply() {
     if (!reply.trim() || !caseData) return;
     setSending(true);
     try {
-      if (!isManual) {
-        markManual(caseId);
+      if (caseData.status !== "ESCALATED") {
         await fetch(`/api/cases/${caseId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -175,7 +160,12 @@ export default function CaseDetailPage() {
         return;
       }
       const { message } = await res.json();
-      setCaseData({ ...caseData, messages: [...caseData.messages, message], updatedAt: new Date().toISOString() });
+      setCaseData({
+        ...caseData,
+        status: "ESCALATED",
+        messages: [...caseData.messages, message],
+        updatedAt: new Date().toISOString(),
+      });
       setReply("");
       setConfirmStep(false);
     } finally {
@@ -202,13 +192,13 @@ export default function CaseDetailPage() {
     }
     setSending(true);
     try {
-      if (!isManual) {
-        markManual(caseId);
+      if (caseData?.status !== "ESCALATED") {
         await fetch(`/api/cases/${caseId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "ESCALATED" }),
         });
+        setCaseData((prev) => prev ? { ...prev, status: "ESCALATED" } : prev);
       }
       const res = await fetch(`/api/cases/${caseId}/forward`, {
         method: "POST",
@@ -227,10 +217,7 @@ export default function CaseDetailPage() {
     }
   }
 
-
   async function handleClose() {
-    closeCase(caseId);
-    setCaseStage(caseId, null);
     await fetch(`/api/cases/${caseId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -240,9 +227,6 @@ export default function CaseDetailPage() {
   }
 
   async function handleReopen() {
-    reopenCase(caseId);
-    setCaseStage(caseId, null);
-    markManual(caseId);
     await fetch(`/api/cases/${caseId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -494,7 +478,7 @@ export default function CaseDetailPage() {
 
 
           {/* Öppna/Avsluta */}
-          {isReallyClosed ? (
+          {isClosed ? (
             <div className="pt-1">
               <button
                 type="button"

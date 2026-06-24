@@ -5,9 +5,6 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CaseRow } from "@/components/cases/CaseRow";
 import { ReviewDeck, type ReviewCase } from "@/components/cases/ReviewDeck";
-import { useClosedCases, closeCase } from "@/lib/closedCases";
-import { useManualCases, markManual } from "@/lib/caseOverrides";
-import { useCaseStages, setCaseStage } from "@/lib/caseStages";
 import type { CaseStatus } from "@prisma/client";
 
 type FilterValue = "ALL" | "READY" | "MANUAL" | "CLOSED";
@@ -67,10 +64,6 @@ export function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortValue>("date_desc");
 
-  const closedIds = useClosedCases();
-  const manualIds = useManualCases();
-  const stages = useCaseStages();
-
   useEffect(() => {
     fetch("/api/cases")
       .then((r) => r.json())
@@ -89,25 +82,19 @@ export function DashboardContent() {
   const cases: Enriched[] = useMemo(
     () =>
       rawCases.map((c) => {
-        const isClosed =
-          closedIds.has(c.id) || c.status === "CLOSED" || c.status === "ARCHIVED";
-        const stage = stages[c.id];
-        const isManual =
-          !isClosed && (manualIds.has(c.id) || c.status === "ESCALATED");
-        const isReady =
-          !isClosed &&
-          !isManual &&
-          (stage === "ready_for_approval" || c.status === "READY_FOR_REVIEW");
+        const isClosed = c.status === "CLOSED" || c.status === "ARCHIVED";
+        const isManual = !isClosed && c.status === "ESCALATED";
+        const isReady  = !isClosed && !isManual && c.status === "READY_FOR_REVIEW";
         return { ...c, isClosed, isManual, isReady };
       }),
-    [rawCases, closedIds, manualIds, stages],
+    [rawCases],
   );
 
   function matches(c: Enriched, f: FilterValue) {
     switch (f) {
       case "ALL":    return !c.isClosed;
       case "READY":  return c.isReady;
-      case "MANUAL": return !c.isClosed && c.isManual;
+      case "MANUAL": return c.isManual;
       case "CLOSED": return c.isClosed;
     }
   }
@@ -128,9 +115,9 @@ export function DashboardContent() {
   }
 
   function tagFor(c: Enriched): "waiting" | "ready" | "manual" | "in_progress" | "closed" | null {
-    if (activeFilter === "CLOSED") return "closed";
+    if (c.isClosed) return "closed";
     if (c.isManual) return "manual";
-    if (c.isReady) return "ready";
+    if (c.isReady)  return "ready";
     if (c.status === "IN_PROGRESS") return "in_progress";
     if (c.status === "WAITING_FOR_RESIDENT") return "waiting";
     return null;
@@ -162,7 +149,9 @@ export function DashboardContent() {
   );
 
   const handleApprove = (id: string, contractorEmail?: string, contractorName?: string) => {
-    setCaseStage(id, null);
+    setRawCases((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: "IN_PROGRESS" as CaseStatus } : c)),
+    );
     fetch(`/api/cases/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -193,19 +182,23 @@ export function DashboardContent() {
         }).catch(() => null);
       }
     }
-
-    setRawCases((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: "IN_PROGRESS" as CaseStatus } : c)),
-    );
   };
 
   const handleManual = (id: string) => {
-    setCaseStage(id, null);
-    markManual(id);
+    setRawCases((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: "ESCALATED" as CaseStatus } : c)),
+    );
+    fetch(`/api/cases/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "ESCALATED" }),
+    }).catch(() => null);
   };
 
   const handleClose = (id: string) => {
-    closeCase(id);
+    setRawCases((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: "CLOSED" as CaseStatus } : c)),
+    );
     fetch(`/api/cases/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

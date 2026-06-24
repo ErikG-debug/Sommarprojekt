@@ -56,6 +56,7 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
     data: {
       caseId: id,
       fromResident: false,
+      sentByAI: false,
       body: fullBody,
       emailId: sentMessageId,
     },
