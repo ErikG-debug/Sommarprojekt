@@ -58,6 +58,11 @@ export default function CaseDetailPage() {
 
   const [caseData, setCaseData] = useState<CaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [backFilter] = useState<string>(() =>
+    typeof window !== "undefined"
+      ? (sessionStorage.getItem("bodesk:lastFilter") ?? "alla")
+      : "alla",
+  );
 
   const closedIds = useClosedCases();
   const manualIds = useManualCases();
@@ -270,7 +275,7 @@ export default function CaseDetailPage() {
   return (
     <div>
       <Link
-        href="/dashboard"
+        href={`/dashboard?filter=${backFilter}`}
         className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-gray-900"
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
