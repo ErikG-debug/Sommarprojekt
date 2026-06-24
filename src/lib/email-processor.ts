@@ -63,6 +63,18 @@ export async function processInboundEmail(email: InboundEmail): Promise<void> {
       (await findCaseByEmailId(stripped));
   }
 
+  // Fallback: matcha via References-headern om In-Reply-To inte träffade
+  if (!existingCase && email.references) {
+    const refIds = email.references.split(/\s+/).filter(Boolean).reverse();
+    for (const refId of refIds) {
+      const stripped = refId.replace(/^<|>$/g, "");
+      existingCase =
+        (await findCaseByEmailId(`<${stripped}>`)) ??
+        (await findCaseByEmailId(stripped));
+      if (existingCase) break;
+    }
+  }
+
   // Ignorera mail på avslutade ärenden
   if (
     existingCase &&

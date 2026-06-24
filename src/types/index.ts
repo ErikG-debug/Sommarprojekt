@@ -34,4 +34,5 @@ export interface InboundEmail {
   htmlBody?: string;
   messageId: string;
   inReplyTo?: string;
+  references?: string;
 }

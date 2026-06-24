@@ -34,7 +34,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     textBody: (payload.TextBody as string) ?? "",
     htmlBody: (payload.HtmlBody as string | undefined),
     messageId: realMessageId,
-    inReplyTo: (payload.InReplyTo as string | undefined),
+    inReplyTo:
+      (payload.InReplyTo as string | undefined) ||
+      headerMap["in-reply-to"] ||
+      undefined,
+    references: headerMap["references"] || undefined,
   };
 
   if (!email.from || !email.to) {
