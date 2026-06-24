@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FieldValuesList } from "@/components/cases/FieldValuesList";
 import { closeCase, reopenCase, useClosedCases } from "@/lib/closedCases";
 import { markManual, unmarkManual, useManualCases } from "@/lib/caseOverrides";
@@ -243,6 +242,25 @@ export default function CaseDetailPage() {
       ? "Skriv ditt svar till hyresgästen…"
       : "Skriv ditt meddelande till servicepersonalen…";
 
+  const TAG_STYLES = {
+    waiting:     { label: "Väntar på svar",       cls: "bg-violet-50 text-violet-700 ring-1 ring-violet-100" },
+    ready:       { label: "Redo för godkännande", cls: "bg-blue-50 text-blue-700 ring-1 ring-blue-100" },
+    manual:      { label: "Manuellt fall",        cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200" },
+    in_progress: { label: "Pågår",               cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" },
+    closed:      { label: "Avslutat",            cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200" },
+  } as const;
+
+  type TagKind = keyof typeof TAG_STYLES;
+
+  const caseTag: TagKind | null = (() => {
+    if (isClosed) return "closed";
+    if (isManual) return "manual";
+    if (caseData.status === "READY_FOR_REVIEW") return "ready";
+    if (caseData.status === "IN_PROGRESS") return "in_progress";
+    if (caseData.status === "WAITING_FOR_RESIDENT") return "waiting";
+    return null;
+  })();
+
   return (
     <div>
       <Link
@@ -270,7 +288,11 @@ export default function CaseDetailPage() {
                   )}
                 </p>
               </div>
-              <StatusBadge status={caseData.status} />
+              {caseTag && (
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TAG_STYLES[caseTag].cls}`}>
+                  {TAG_STYLES[caseTag].label}
+                </span>
+              )}
             </div>
 
             {/* Tabs */}
